@@ -15,6 +15,7 @@
     "symfony/framework-bundle": "^6.4",
     "symfony/http-foundation": "^6.4",
     "symfony/http-kernel": "^6.4",
+    "symfony/routing": "^6.4",
     "symfony/security-core": "^6.4",
     "tourze/symfony-routing-auto-loader-bundle": "0.0.*"
   },
