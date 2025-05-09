@@ -10,8 +10,12 @@
     "doctrine/orm": "^3.0",
     "doctrine/persistence": "^3.1 || ^4",
     "symfony/config": "^6.4",
+    "symfony/console": "^6.4",
     "symfony/dependency-injection": "^6.4",
+    "symfony/framework-bundle": "^6.4",
+    "symfony/http-foundation": "^6.4",
     "symfony/http-kernel": "^6.4",
+    "symfony/security-core": "^6.4",
     "tourze/symfony-routing-auto-loader-bundle": "0.0.*"
   },
   "require-dev": {

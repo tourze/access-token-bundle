@@ -7,8 +7,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
-use SymfonyEasyAdminDemo\Entity\User;
 
 #[Route('/api', name: 'api_')]
 class ApiController extends AbstractController
@@ -19,22 +19,19 @@ class ApiController extends AbstractController
     }
 
     #[Route('/user', name: 'user_info', methods: ['GET'])]
-    public function userInfo(#[CurrentUser] ?User $user): JsonResponse
+    public function userInfo(#[CurrentUser] ?UserInterface $user): JsonResponse
     {
         if (!$user) {
             return $this->json(['error' => '未授权访问'], Response::HTTP_UNAUTHORIZED);
         }
 
         return $this->json([
-            'username' => $user->getUsername(),
-            'email' => $user->getEmail(),
-            'fullName' => $user->getFullName(),
-            'roles' => $user->getRoles(),
+            'identifier' => $user->getUserIdentifier(),
         ]);
     }
 
     #[Route('/tokens', name: 'list_tokens', methods: ['GET'])]
-    public function listTokens(#[CurrentUser] ?User $user): JsonResponse
+    public function listTokens(#[CurrentUser] ?UserInterface $user): JsonResponse
     {
         if (!$user) {
             return $this->json(['error' => '未授权访问'], Response::HTTP_UNAUTHORIZED);
@@ -58,7 +55,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/token/revoke/{id}', name: 'revoke_token', methods: ['POST'])]
-    public function revokeToken(int $id, #[CurrentUser] ?User $user): JsonResponse
+    public function revokeToken(int $id, #[CurrentUser] ?UserInterface $user): JsonResponse
     {
         if (!$user) {
             return $this->json(['error' => '未授权访问'], Response::HTTP_UNAUTHORIZED);

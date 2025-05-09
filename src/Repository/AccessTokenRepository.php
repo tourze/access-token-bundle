@@ -5,7 +5,7 @@ namespace AccessTokenBundle\Repository;
 use AccessTokenBundle\Entity\AccessToken;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use SymfonyEasyAdminDemo\Entity\User;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * @extends ServiceEntityRepository<AccessToken>
@@ -36,7 +36,7 @@ class AccessTokenRepository extends ServiceEntityRepository
     /**
      * 查找用户的所有有效令牌
      */
-    public function findValidTokensByUser(User $user): array
+    public function findValidTokensByUser(UserInterface $user): array
     {
         return $this->createQueryBuilder('t')
             ->where('t.user = :user')
