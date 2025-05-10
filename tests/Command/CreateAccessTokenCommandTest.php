@@ -6,24 +6,24 @@ use AccessTokenBundle\Command\CreateAccessTokenCommand;
 use AccessTokenBundle\Entity\AccessToken;
 use AccessTokenBundle\Service\AccessTokenService;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Security\Core\User\UserInterface;
-use SymfonyEasyAdminDemo\Repository\UserRepository;
 
 class CreateAccessTokenCommandTest extends TestCase
 {
-    private UserRepository $userRepository;
+    private UserLoaderInterface $userLoader;
     private AccessTokenService $accessTokenService;
     private CreateAccessTokenCommand $command;
     private CommandTester $commandTester;
     
     protected function setUp(): void
     {
-        $this->userRepository = $this->createMock(UserRepository::class);
+        $this->userLoader = $this->createMock(UserLoaderInterface::class);
         $this->accessTokenService = $this->createMock(AccessTokenService::class);
         $this->command = new CreateAccessTokenCommand(
-            $this->userRepository,
+            $this->userLoader,
             $this->accessTokenService
         );
         
@@ -43,9 +43,9 @@ class CreateAccessTokenCommandTest extends TestCase
         ]);
         
         // 配置仓库模拟对象返回用户
-        $this->userRepository->expects($this->once())
-            ->method('findOneBy')
-            ->with(['username' => $username])
+        $this->userLoader->expects($this->once())
+            ->method('loadUserByIdentifier')
+            ->with($username)
             ->willReturn($user);
         
         // 配置服务模拟对象创建令牌
@@ -75,9 +75,9 @@ class CreateAccessTokenCommandTest extends TestCase
         $username = 'invalid_user';
         
         // 配置仓库模拟对象返回null，表示用户不存在
-        $this->userRepository->expects($this->once())
-            ->method('findOneBy')
-            ->with(['username' => $username])
+        $this->userLoader->expects($this->once())
+            ->method('loadUserByIdentifier')
+            ->with($username)
             ->willReturn(null);
         
         // 配置服务模拟对象，期望不被调用
@@ -108,9 +108,9 @@ class CreateAccessTokenCommandTest extends TestCase
         ]);
         
         // 配置仓库模拟对象返回用户
-        $this->userRepository->expects($this->once())
-            ->method('findOneBy')
-            ->with(['username' => $username])
+        $this->userLoader->expects($this->once())
+            ->method('loadUserByIdentifier')
+            ->with($username)
             ->willReturn($user);
         
         // 配置服务模拟对象创建令牌，期望使用自定义过期时间
@@ -144,9 +144,9 @@ class CreateAccessTokenCommandTest extends TestCase
         ]);
         
         // 配置仓库模拟对象返回用户
-        $this->userRepository->expects($this->once())
-            ->method('findOneBy')
-            ->with(['username' => $username])
+        $this->userLoader->expects($this->once())
+            ->method('loadUserByIdentifier')
+            ->with($username)
             ->willReturn($user);
         
         // 配置服务模拟对象创建令牌，期望使用设备信息
