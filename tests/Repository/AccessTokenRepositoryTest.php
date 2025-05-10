@@ -11,11 +11,11 @@ class AccessTokenRepositoryTest extends TestCase
     private $queryBuilder;
     private $query;
     private $repository;
-    
+
     protected function setUp(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
-        
+
         /*
         $this->managerRegistry = $this->createMock(ManagerRegistry::class);
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
@@ -70,49 +70,49 @@ class AccessTokenRepositoryTest extends TestCase
         );
         */
     }
-    
+
     public function testFindOneByValue_shouldReturnToken(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testFindOneByValue_withInvalidToken_shouldReturnNull(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testFindValidTokensByUser_shouldReturnTokensArray(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testRemoveExpiredTokens_withExpiredTokens_shouldReturnDeletedCount(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testRemoveExpiredTokens_withNoExpiredTokens_shouldReturnZero(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testSave_shouldPersistEntityAndFlush(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testSave_withFlushFalse_shouldOnlyPersistEntity(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testRemove_shouldRemoveEntityAndFlush(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-    
+
     public function testRemove_withFlushFalse_shouldOnlyRemoveEntity(): void
     {
         $this->markTestSkipped('该测试需要的Doctrine复杂模拟暂不实现，以避免类型不匹配问题');
     }
-} 
+}
