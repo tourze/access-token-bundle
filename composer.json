@@ -23,9 +23,9 @@
     "tourze/symfony-routing-auto-loader-bundle": "0.0.*"
   },
   "require-dev": {
+    "deptrac/deptrac": "^3.0",
     "phpstan/phpstan": "^2.1",
-    "phpunit/phpunit": "^10.0",
-    "deptrac/deptrac": "^3.0"
+    "phpunit/phpunit": "^10.0"
   },
   "autoload": {
     "psr-4": {
