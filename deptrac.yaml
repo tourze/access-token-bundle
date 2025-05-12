@@ -1,0 +1,25 @@
+deptrac:
+  paths:
+    - ./src
+  exclude_files:
+    - '#.*tests.*#'
+  layers:
+    - name: Controller
+      collectors:
+        - type: directory
+          value: src/Controller/.*
+    - name: Repository
+      collectors:
+        - type: directory
+          value: src/Repository/.*
+    - name: Service
+      collectors:
+        - type: directory
+          value: src/Service/.*
+  ruleset:
+    Controller:
+      - Service
+    Service:
+      - Repository
+      - Controller # 因为有 RouteLoader 的存在
+    Repository: ~
