@@ -273,4 +273,131 @@ class AccessTokenServiceTest extends TestCase
         // 验证结果
         $this->assertEquals(5, $result);
     }
+
+    public function testCreateToken_withPreventMultipleLoginEnabled_shouldRevokeExistingTokens(): void
+    {
+        // 设置环境变量启用防止多点登录
+        $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'true';
+
+        $user = $this->createMock(UserInterface::class);
+        $existingToken1 = $this->createMock(AccessToken::class);
+        $existingToken2 = $this->createMock(AccessToken::class);
+        $existingTokens = [$existingToken1, $existingToken2];
+
+        // 配置仓库返回现有令牌
+        $this->repository->expects($this->once())
+            ->method('findValidTokensByUser')
+            ->with($user)
+            ->willReturn($existingTokens);
+
+        // 期望现有令牌被吊销
+        $existingToken1->expects($this->once())
+            ->method('setValid')
+            ->with(false)
+            ->willReturnSelf();
+
+        $existingToken2->expects($this->once())
+            ->method('setValid')
+            ->with(false)
+            ->willReturnSelf();
+
+        // 期望save方法被调用3次（2次吊销 + 1次创建新令牌）
+        $this->repository->expects($this->exactly(3))
+            ->method('save');
+
+        // 调用服务方法
+        $createdToken = $this->service->createToken($user);
+
+        // 验证返回的是AccessToken实例
+        $this->assertInstanceOf(AccessToken::class, $createdToken);
+
+        // 清理环境变量
+        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+    }
+
+    public function testCreateToken_withPreventMultipleLoginDisabled_shouldNotRevokeExistingTokens(): void
+    {
+        // 设置环境变量禁用防止多点登录
+        $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'false';
+
+        $user = $this->createMock(UserInterface::class);
+
+        // 期望不会查询现有令牌
+        $this->repository->expects($this->never())
+            ->method('findValidTokensByUser');
+
+        // 期望save方法只被调用1次（创建新令牌）
+        $this->repository->expects($this->once())
+            ->method('save')
+            ->with($this->isInstanceOf(AccessToken::class));
+
+        // 调用服务方法
+        $createdToken = $this->service->createToken($user);
+
+        // 验证返回的是AccessToken实例
+        $this->assertInstanceOf(AccessToken::class, $createdToken);
+
+        // 清理环境变量
+        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+    }
+
+    public function testCreateToken_withDefaultEnvironmentVariable_shouldPreventMultipleLogin(): void
+    {
+        // 不设置环境变量，应该使用默认值true
+        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+
+        $user = $this->createMock(UserInterface::class);
+        $existingToken = $this->createMock(AccessToken::class);
+        $existingTokens = [$existingToken];
+
+        // 配置仓库返回现有令牌
+        $this->repository->expects($this->once())
+            ->method('findValidTokensByUser')
+            ->with($user)
+            ->willReturn($existingTokens);
+
+        // 期望现有令牌被吊销
+        $existingToken->expects($this->once())
+            ->method('setValid')
+            ->with(false)
+            ->willReturnSelf();
+
+        // 期望save方法被调用2次（1次吊销 + 1次创建新令牌）
+        $this->repository->expects($this->exactly(2))
+            ->method('save');
+
+        // 调用服务方法
+        $createdToken = $this->service->createToken($user);
+
+        // 验证返回的是AccessToken实例
+        $this->assertInstanceOf(AccessToken::class, $createdToken);
+    }
+
+    public function testCreateToken_withNoExistingTokens_shouldNotCallRevoke(): void
+    {
+        // 设置环境变量启用防止多点登录
+        $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'true';
+
+        $user = $this->createMock(UserInterface::class);
+
+        // 配置仓库返回空数组（无现有令牌）
+        $this->repository->expects($this->once())
+            ->method('findValidTokensByUser')
+            ->with($user)
+            ->willReturn([]);
+
+        // 期望save方法只被调用1次（创建新令牌）
+        $this->repository->expects($this->once())
+            ->method('save')
+            ->with($this->isInstanceOf(AccessToken::class));
+
+        // 调用服务方法
+        $createdToken = $this->service->createToken($user);
+
+        // 验证返回的是AccessToken实例
+        $this->assertInstanceOf(AccessToken::class, $createdToken);
+
+        // 清理环境变量
+        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+    }
 }
