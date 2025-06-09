@@ -4,25 +4,25 @@ namespace AccessTokenBundle\Tests\Command;
 
 use AccessTokenBundle\Command\CleanupAccessTokensCommand;
 use AccessTokenBundle\Service\AccessTokenService;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 
 class CleanupAccessTokensCommandTest extends TestCase
 {
-    private AccessTokenService $accessTokenService;
-    private CleanupAccessTokensCommand $command;
+    private AccessTokenService|MockObject $accessTokenService;
     private CommandTester $commandTester;
 
     protected function setUp(): void
     {
         $this->accessTokenService = $this->createMock(AccessTokenService::class);
-        $this->command = new CleanupAccessTokensCommand($this->accessTokenService);
+        $command = new CleanupAccessTokensCommand($this->accessTokenService);
 
         $application = new Application();
-        $application->add($this->command);
+        $application->add($command);
 
-        $this->commandTester = new CommandTester($this->command);
+        $this->commandTester = new CommandTester($command);
     }
 
     public function testExecute_withDefaultOptions_shouldCleanupTokens(): void
