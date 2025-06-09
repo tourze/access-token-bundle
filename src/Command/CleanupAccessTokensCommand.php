@@ -25,8 +25,7 @@ class CleanupAccessTokensCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, '仅显示将删除的令牌数量，但不实际删除')
-        ;
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, '仅显示将删除的令牌数量，但不实际删除');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -39,17 +38,17 @@ class CleanupAccessTokensCommand extends Command
         }
 
         $io->section('清理过期访问令牌');
-        
+
         try {
             // 执行清理
             $count = $this->accessTokenService->cleanupExpiredTokens();
-            
+
             if ($isDryRun) {
                 $io->success(sprintf('找到 %d 个过期访问令牌需要清理', $count));
             } else {
                 $io->success(sprintf('成功清理 %d 个过期访问令牌', $count));
             }
-            
+
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $io->error(sprintf('清理过程中发生错误: %s', $e->getMessage()));

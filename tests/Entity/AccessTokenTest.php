@@ -210,4 +210,4 @@ class AccessTokenTest extends TestCase
         // 检查设备信息为null
         $this->assertNull($token->getDeviceInfo());
     }
-} 
+}
