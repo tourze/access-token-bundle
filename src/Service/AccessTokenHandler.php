@@ -2,10 +2,12 @@
 
 namespace AccessTokenBundle\Service;
 
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
+#[Autoconfigure(lazy: true)]
 class AccessTokenHandler implements AccessTokenHandlerInterface
 {
     public function __construct(
