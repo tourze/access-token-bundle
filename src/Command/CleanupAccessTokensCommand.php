@@ -50,7 +50,7 @@ class CleanupAccessTokensCommand extends Command
             }
 
             return Command::SUCCESS;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $io->error(sprintf('清理过程中发生错误: %s', $e->getMessage()));
             return Command::FAILURE;
         }
