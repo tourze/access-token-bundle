@@ -13,7 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'app:create-access-token',
+    name: self::NAME,
     description: '为用户创建新的访问令牌',
 )]
 class CreateAccessTokenCommand extends Command

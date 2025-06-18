@@ -11,7 +11,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'app:cleanup-access-tokens',
+    name: self::NAME,
     description: '清理过期的访问令牌',
 )]
 class CleanupAccessTokensCommand extends Command
