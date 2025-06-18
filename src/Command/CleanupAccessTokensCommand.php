@@ -16,6 +16,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class CleanupAccessTokensCommand extends Command
 {
+    public const NAME = 'app:cleanup-access-tokens';
     public function __construct(
         private readonly AccessTokenService $accessTokenService,
     ) {
@@ -33,7 +34,7 @@ class CleanupAccessTokensCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $isDryRun = $input->getOption('dry-run');
 
-        if ($isDryRun) {
+        if ($isDryRun === true) {
             $io->note('正在以"仅显示模式"运行，不会删除任何令牌');
         }
 
@@ -43,7 +44,7 @@ class CleanupAccessTokensCommand extends Command
             // 执行清理
             $count = $this->accessTokenService->cleanupExpiredTokens();
 
-            if ($isDryRun) {
+            if ($isDryRun === true) {
                 $io->success(sprintf('找到 %d 个过期访问令牌需要清理', $count));
             } else {
                 $io->success(sprintf('成功清理 %d 个过期访问令牌', $count));

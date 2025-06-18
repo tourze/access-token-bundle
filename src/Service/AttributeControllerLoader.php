@@ -2,7 +2,10 @@
 
 namespace AccessTokenBundle\Service;
 
-use AccessTokenBundle\Controller\ApiController;
+use AccessTokenBundle\Controller\ListTokensController;
+use AccessTokenBundle\Controller\RevokeTokenController;
+use AccessTokenBundle\Controller\TestController;
+use AccessTokenBundle\Controller\UserInfoController;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Config\Loader\Loader;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -33,7 +36,10 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
     public function autoload(): RouteCollection
     {
         $collection = new RouteCollection();
-        $collection->addCollection($this->controllerLoader->load(ApiController::class));
+        $collection->addCollection($this->controllerLoader->load(UserInfoController::class));
+        $collection->addCollection($this->controllerLoader->load(ListTokensController::class));
+        $collection->addCollection($this->controllerLoader->load(RevokeTokenController::class));
+        $collection->addCollection($this->controllerLoader->load(TestController::class));
         return $collection;
     }
 }

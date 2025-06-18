@@ -18,6 +18,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class CreateAccessTokenCommand extends Command
 {
+    public const NAME = 'app:create-access-token';
     public function __construct(
         private readonly UserLoaderInterface $userLoader,
         private readonly AccessTokenService $accessTokenService,
@@ -44,7 +45,7 @@ class CreateAccessTokenCommand extends Command
         // 查找用户
         $user = $this->userLoader->loadUserByIdentifier($username);
 
-        if (!$user) {
+        if ($user === null) {
             $io->error(sprintf('用户 "%s" 不存在', $username));
             return Command::FAILURE;
         }

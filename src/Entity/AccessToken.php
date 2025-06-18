@@ -3,6 +3,7 @@
 namespace AccessTokenBundle\Entity;
 
 use AccessTokenBundle\Repository\AccessTokenRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -14,7 +15,7 @@ class AccessToken implements \Stringable
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Column(options: ['comment' => '主键ID'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255, unique: true, options: ['comment' => '令牌值'])]
@@ -24,13 +25,13 @@ class AccessToken implements \Stringable
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private UserInterface $user;
 
-    #[ORM\Column(type: 'datetime_immutable', options: ['comment' => '创建时间'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '创建时间'])]
     private ?\DateTimeImmutable $createdAt = null;
 
-    #[ORM\Column(type: 'datetime_immutable', options: ['comment' => '过期时间'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '过期时间'])]
     private ?\DateTimeImmutable $expiresAt = null;
 
-    #[ORM\Column(type: 'datetime_immutable', nullable: true, options: ['comment' => '最后访问时间'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true, options: ['comment' => '最后访问时间'])]
     private ?\DateTimeImmutable $lastAccessedAt = null;
 
     #[ORM\Column(length: 255, nullable: true, options: ['comment' => '设备信息'])]
@@ -173,7 +174,7 @@ class AccessToken implements \Stringable
     public function updateAccessInfo(?string $ip = null): static
     {
         $this->lastAccessedAt = new \DateTimeImmutable();
-        if ($ip) {
+        if ($ip !== null) {
             $this->lastIp = $ip;
         }
 

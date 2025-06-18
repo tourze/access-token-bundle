@@ -75,7 +75,7 @@ class AccessTokenService
     {
         $token = $this->findToken($tokenValue);
 
-        if (!$token || !$this->validateToken($token)) {
+        if ($token === null || !$this->validateToken($token)) {
             return null;
         }
 
