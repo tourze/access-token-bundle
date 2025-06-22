@@ -33,7 +33,7 @@ class ListTokensController extends AbstractController
                 'token' => substr($token->getToken(), 0, 8) . '...',  // 只显示token的一部分
                 'createdAt' => $token->getCreatedAt()->format('Y-m-d H:i:s'),
                 'expiresAt' => $token->getExpiresAt()->format('Y-m-d H:i:s'),
-                'lastAccessedAt' => $token->getLastAccessedAt() ? $token->getLastAccessedAt()->format('Y-m-d H:i:s') : null,
+                'lastAccessedAt' => $token->getLastAccessedAt()?->format('Y-m-d H:i:s'),
                 'deviceInfo' => $token->getDeviceInfo(),
             ];
         }

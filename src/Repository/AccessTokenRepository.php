@@ -35,6 +35,8 @@ class AccessTokenRepository extends ServiceEntityRepository
 
     /**
      * 查找用户的所有有效令牌
+     *
+     * @return AccessToken[]
      */
     public function findValidTokensByUser(UserInterface $user): array
     {

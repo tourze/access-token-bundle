@@ -54,6 +54,8 @@ class AccessTokenService
 
     /**
      * 获取用户所有有效令牌
+     *
+     * @return AccessToken[]
      */
     public function findTokensByUser(UserInterface $user): array
     {
