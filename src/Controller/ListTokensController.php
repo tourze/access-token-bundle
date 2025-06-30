@@ -17,7 +17,7 @@ class ListTokensController extends AbstractController
     ) {
     }
 
-    #[Route('/api/tokens', name: 'api_list_tokens', methods: ['GET'])]
+    #[Route(path: '/api/tokens', name: 'api_list_tokens', methods: ['GET'])]
     public function __invoke(#[CurrentUser] ?UserInterface $user): JsonResponse
     {
         if ($user === null) {

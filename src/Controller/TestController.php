@@ -8,7 +8,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class TestController extends AbstractController
 {
-    #[Route('/api/test', name: 'api_test', methods: ['GET'])]
+    #[Route(path: '/api/test', name: 'api_test', methods: ['GET'])]
     public function __invoke(): JsonResponse
     {
         return $this->json([

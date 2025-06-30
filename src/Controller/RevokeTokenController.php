@@ -17,7 +17,7 @@ class RevokeTokenController extends AbstractController
     ) {
     }
 
-    #[Route('/api/token/revoke/{id}', name: 'api_revoke_token', methods: ['POST'])]
+    #[Route(path: '/api/token/revoke/{id}', name: 'api_revoke_token', methods: ['POST'])]
     public function __invoke(int $id, #[CurrentUser] ?UserInterface $user): JsonResponse
     {
         if ($user === null) {

@@ -11,7 +11,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class UserInfoController extends AbstractController
 {
-    #[Route('/api/user', name: 'api_user_info', methods: ['GET'])]
+    #[Route(path: '/api/user', name: 'api_user_info', methods: ['GET'])]
     public function __invoke(#[CurrentUser] ?UserInterface $user): JsonResponse
     {
         if ($user === null) {
