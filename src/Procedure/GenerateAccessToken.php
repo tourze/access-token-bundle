@@ -2,7 +2,7 @@
 
 namespace Tourze\AccessTokenBundle\Procedure;
 
-use BizUserBundle\Service\UserService;
+use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 use Tourze\AccessTokenBundle\Exception\UserNotFoundException;
 use Tourze\AccessTokenBundle\Service\AccessTokenService;
@@ -33,13 +33,13 @@ class GenerateAccessToken extends BaseProcedure
 
     public function __construct(
         private readonly AccessTokenService $accessTokenService,
-        private readonly UserService $userService,
+        private readonly UserLoaderInterface $userService,
     ) {
     }
 
     public function execute(): array
     {
-        $user = $this->userService->findUserByIdentity($this->identifier);
+        $user = $this->userService->loadUserByIdentifier($this->identifier);
         if (null === $user) {
             throw new UserNotFoundException($this->identifier);
         }
