@@ -2,7 +2,7 @@
 
 namespace Tourze\AccessTokenBundle\Exception;
 
-class UserNotFoundException extends \RuntimeException
+final class UserNotFoundException extends \RuntimeException
 {
     public function __construct(string|int $identifier, ?\Throwable $previous = null)
     {
