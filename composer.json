@@ -28,7 +28,7 @@
     "symfony/yaml": "^7.3",
     "tourze/biz-user-bundle": "0.0.*",
     "tourze/bundle-dependency": "1.*",
-    "tourze/doctrine-indexed-bundle": "0.0.*",
+    "tourze/doctrine-indexed-bundle": "1.0.*",
     "tourze/easy-admin-menu-bundle": "0.1.*",
     "tourze/json-rpc-core": "0.0.*",
     "tourze/symfony-dependency-service-loader": "1.*",
