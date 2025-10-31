@@ -1,20 +1,46 @@
 <?php
 
-namespace AccessTokenBundle\Repository;
+namespace Tourze\AccessTokenBundle\Repository;
 
-use AccessTokenBundle\Entity\AccessToken;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Tourze\AccessTokenBundle\Entity\AccessToken;
+use Tourze\PHPUnitSymfonyKernelTest\Attribute\AsRepository;
 
 /**
  * @extends ServiceEntityRepository<AccessToken>
  */
+#[AsRepository(entityClass: AccessToken::class)]
 class AccessTokenRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, AccessToken::class);
+    }
+
+    /**
+     * 保存访问令牌实体
+     */
+    public function save(AccessToken $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->persist($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * 删除访问令牌实体
+     */
+    public function remove(AccessToken $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
     }
 
     /**
@@ -25,12 +51,13 @@ class AccessTokenRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->where('t.token = :token')
             ->andWhere('t.valid = :valid')
-            ->andWhere('t.expiresAt > :now')
+            ->andWhere('t.expireTime > :now')
             ->setParameter('token', $value)
             ->setParameter('valid', true)
             ->setParameter('now', new \DateTimeImmutable())
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getOneOrNullResult()
+        ;
     }
 
     /**
@@ -43,13 +70,14 @@ class AccessTokenRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->where('t.user = :user')
             ->andWhere('t.valid = :valid')
-            ->andWhere('t.expiresAt > :now')
+            ->andWhere('t.expireTime > :now')
             ->setParameter('user', $user)
             ->setParameter('valid', true)
             ->setParameter('now', new \DateTimeImmutable())
-            ->orderBy('t.createdAt', 'DESC')
+            ->orderBy('t.createTime', 'DESC')
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
     }
 
     /**
@@ -62,15 +90,16 @@ class AccessTokenRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('t');
         $expiredTokenIds = $qb->select('t.id')
             ->where($qb->expr()->orX(
-                $qb->expr()->lt('t.expiresAt', ':now'),
+                $qb->expr()->lt('t.expireTime', ':now'),
                 $qb->expr()->eq('t.valid', ':invalid')
             ))
             ->setParameter('now', $now)
             ->setParameter('invalid', false)
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
 
-        if (empty($expiredTokenIds)) {
+        if ([] === $expiredTokenIds) {
             return 0;
         }
 
@@ -81,30 +110,7 @@ class AccessTokenRepository extends ServiceEntityRepository
             ->where('t.id IN (:ids)')
             ->setParameter('ids', $ids)
             ->getQuery()
-            ->execute();
-    }
-
-    /**
-     * 保存访问令牌
-     */
-    public function save(AccessToken $accessToken, bool $flush = true): void
-    {
-        $this->getEntityManager()->persist($accessToken);
-
-        if ($flush) {
-            $this->getEntityManager()->flush();
-        }
-    }
-
-    /**
-     * 删除访问令牌
-     */
-    public function remove(AccessToken $accessToken, bool $flush = true): void
-    {
-        $this->getEntityManager()->remove($accessToken);
-
-        if ($flush) {
-            $this->getEntityManager()->flush();
-        }
+            ->execute()
+        ;
     }
 }

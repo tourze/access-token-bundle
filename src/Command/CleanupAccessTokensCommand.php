@@ -1,22 +1,20 @@
 <?php
 
-namespace AccessTokenBundle\Command;
+namespace Tourze\AccessTokenBundle\Command;
 
-use AccessTokenBundle\Service\AccessTokenService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Tourze\AccessTokenBundle\Service\AccessTokenService;
 
-#[AsCommand(
-    name: self::NAME,
-    description: '清理过期的访问令牌',
-)]
+#[AsCommand(name: self::NAME, description: '清理过期的访问令牌')]
 class CleanupAccessTokensCommand extends Command
 {
     public const NAME = 'app:cleanup-access-tokens';
+
     public function __construct(
         private readonly AccessTokenService $accessTokenService,
     ) {
@@ -26,7 +24,8 @@ class CleanupAccessTokensCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, '仅显示将删除的令牌数量，但不实际删除');
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, '仅显示将删除的令牌数量，但不实际删除')
+        ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -34,7 +33,7 @@ class CleanupAccessTokensCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $isDryRun = $input->getOption('dry-run');
 
-        if ($isDryRun === true) {
+        if (true === $isDryRun) {
             $io->note('正在以"仅显示模式"运行，不会删除任何令牌');
         }
 
@@ -44,7 +43,7 @@ class CleanupAccessTokensCommand extends Command
             // 执行清理
             $count = $this->accessTokenService->cleanupExpiredTokens();
 
-            if ($isDryRun === true) {
+            if (true === $isDryRun) {
                 $io->success(sprintf('找到 %d 个过期访问令牌需要清理', $count));
             } else {
                 $io->success(sprintf('成功清理 %d 个过期访问令牌', $count));
@@ -53,6 +52,7 @@ class CleanupAccessTokensCommand extends Command
             return Command::SUCCESS;
         } catch (\Throwable $e) {
             $io->error(sprintf('清理过程中发生错误: %s', $e->getMessage()));
+
             return Command::FAILURE;
         }
     }

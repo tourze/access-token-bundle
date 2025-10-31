@@ -1,17 +1,17 @@
 <?php
 
-namespace AccessTokenBundle\Service;
+namespace Tourze\AccessTokenBundle\Service;
 
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
-#[Autoconfigure(lazy: true)]
-class AccessTokenHandler implements AccessTokenHandlerInterface
+#[Autoconfigure(public: true)]
+readonly class AccessTokenHandler implements AccessTokenHandlerInterface
 {
     public function __construct(
-        private readonly AccessTokenService $accessTokenService,
+        private AccessTokenService $accessTokenService,
     ) {
     }
 
@@ -20,10 +20,10 @@ class AccessTokenHandler implements AccessTokenHandlerInterface
         // 使用服务验证并续期令牌
         // 默认自动续期一小时
         $accessTokenEntity = $this->accessTokenService->validateAndExtendToken(
-            $accessToken, 
+            $accessToken,
             $_ENV['ACCESS_TOKEN_RENEWAL_TIME'] ?? 3600,
         );
-        
+
         if (null === $accessTokenEntity) {
             throw new BadCredentialsException('无效的访问令牌');
         }

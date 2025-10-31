@@ -1,23 +1,23 @@
 <?php
 
-namespace AccessTokenBundle\Service;
+namespace Tourze\AccessTokenBundle\Service;
 
-use AccessTokenBundle\Entity\AccessToken;
-use AccessTokenBundle\Repository\AccessTokenRepository;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Tourze\AccessTokenBundle\Entity\AccessToken;
+use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
 
 /**
  * AccessToken 服务
  *
  * 集中管理访问令牌的创建、查询、续期等操作
  */
-class AccessTokenService
+readonly class AccessTokenService
 {
     public function __construct(
-        private readonly AccessTokenRepository $repository,
-        private readonly RequestStack $requestStack,
-        private readonly int $defaultExpiresIn = 86400, // 默认有效期1天
+        private AccessTokenRepository $repository,
+        private RequestStack $requestStack,
+        private int $defaultExpiresIn = 86400, // 默认有效期1天
     ) {
     }
 
@@ -37,9 +37,9 @@ class AccessTokenService
             }
         }
 
-        $expiresIn = $expiresIn ?? $this->defaultExpiresIn;
+        $expiresIn ??= $this->defaultExpiresIn;
         $token = AccessToken::create($user, $expiresIn, $deviceInfo);
-        $this->repository->save($token);
+        $this->repository->save($token, true);
 
         return $token;
     }
@@ -77,7 +77,7 @@ class AccessTokenService
     {
         $token = $this->findToken($tokenValue);
 
-        if ($token === null || !$this->validateToken($token)) {
+        if (null === $token || !$this->validateToken($token)) {
             return null;
         }
 
@@ -89,7 +89,7 @@ class AccessTokenService
         $token->updateAccessInfo($clientIp);
         $token->extend($expiresIn);
 
-        $this->repository->save($token);
+        $this->repository->save($token, true);
 
         return $token;
     }
@@ -100,7 +100,7 @@ class AccessTokenService
     public function revokeToken(AccessToken $token): void
     {
         $token->setValid(false);
-        $this->repository->save($token);
+        $this->repository->save($token, true);
     }
 
     /**
@@ -108,7 +108,7 @@ class AccessTokenService
      */
     public function deleteToken(AccessToken $token): void
     {
-        $this->repository->remove($token);
+        $this->repository->remove($token, true);
     }
 
     /**

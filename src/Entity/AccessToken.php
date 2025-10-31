@@ -1,16 +1,16 @@
 <?php
 
-namespace AccessTokenBundle\Entity;
+namespace Tourze\AccessTokenBundle\Entity;
 
-use AccessTokenBundle\Repository\AccessTokenRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Validator\Constraints as Assert;
+use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
+use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
 
 #[ORM\Entity(repositoryClass: AccessTokenRepository::class)]
 #[ORM\Table(name: 'access_token', options: ['comment' => '访问令牌'])]
-#[ORM\Index(name: 'idx_access_token_token', columns: ['token'])]
-#[ORM\Index(name: 'idx_access_token_expires', columns: ['expires_at'])]
 class AccessToken implements \Stringable
 {
     #[ORM\Id]
@@ -18,28 +18,37 @@ class AccessToken implements \Stringable
     #[ORM\Column(options: ['comment' => '主键ID'])]
     private ?int $id = null;
 
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 255)]
+    #[IndexColumn]
     #[ORM\Column(length: 255, unique: true, options: ['comment' => '令牌值'])]
     private ?string $token = null;
 
-    #[ORM\ManyToOne(targetEntity: UserInterface::class)]
+    #[ORM\ManyToOne(targetEntity: UserInterface::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private UserInterface $user;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '创建时间'])]
-    private ?\DateTimeImmutable $createdAt = null;
+    private ?\DateTimeImmutable $createTime = null;
 
+    #[Assert\NotNull]
+    #[IndexColumn]
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '过期时间'])]
-    private ?\DateTimeImmutable $expiresAt = null;
+    private ?\DateTimeImmutable $expireTime = null;
 
+    #[Assert\Type(type: \DateTimeImmutable::class)]
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true, options: ['comment' => '最后访问时间'])]
-    private ?\DateTimeImmutable $lastAccessedAt = null;
+    private ?\DateTimeImmutable $lastAccessTime = null;
 
+    #[Assert\Length(max: 255)]
     #[ORM\Column(length: 255, nullable: true, options: ['comment' => '设备信息'])]
     private ?string $deviceInfo = null;
 
+    #[Assert\Length(max: 45)]
     #[ORM\Column(length: 45, nullable: true, options: ['comment' => '最后访问IP'])]
     private ?string $lastIp = null;
 
+    #[Assert\Type(type: 'bool')]
     #[ORM\Column(options: ['comment' => '是否有效'])]
     private bool $valid = true;
 
@@ -58,11 +67,9 @@ class AccessToken implements \Stringable
         return $this->token;
     }
 
-    public function setToken(string $token): static
+    public function setToken(string $token): void
     {
         $this->token = $token;
-
-        return $this;
     }
 
     public function getUser(): UserInterface
@@ -70,47 +77,39 @@ class AccessToken implements \Stringable
         return $this->user;
     }
 
-    public function setUser(UserInterface $user): static
+    public function setUser(UserInterface $user): void
     {
         $this->user = $user;
-
-        return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
+    public function getCreateTime(): ?\DateTimeImmutable
     {
-        return $this->createdAt;
+        return $this->createTime;
     }
 
-    public function setCreatedAt(\DateTimeImmutable $createdAt): static
+    public function setCreateTime(\DateTimeImmutable $createTime): void
     {
-        $this->createdAt = $createdAt;
-
-        return $this;
+        $this->createTime = $createTime;
     }
 
-    public function getExpiresAt(): ?\DateTimeImmutable
+    public function getExpireTime(): ?\DateTimeImmutable
     {
-        return $this->expiresAt;
+        return $this->expireTime;
     }
 
-    public function setExpiresAt(\DateTimeImmutable $expiresAt): static
+    public function setExpireTime(\DateTimeImmutable $expireTime): void
     {
-        $this->expiresAt = $expiresAt;
-
-        return $this;
+        $this->expireTime = $expireTime;
     }
 
-    public function getLastAccessedAt(): ?\DateTimeImmutable
+    public function getLastAccessTime(): ?\DateTimeImmutable
     {
-        return $this->lastAccessedAt;
+        return $this->lastAccessTime;
     }
 
-    public function setLastAccessedAt(?\DateTimeImmutable $lastAccessedAt): static
+    public function setLastAccessTime(?\DateTimeImmutable $lastAccessTime): void
     {
-        $this->lastAccessedAt = $lastAccessedAt;
-
-        return $this;
+        $this->lastAccessTime = $lastAccessTime;
     }
 
     public function getDeviceInfo(): ?string
@@ -118,11 +117,9 @@ class AccessToken implements \Stringable
         return $this->deviceInfo;
     }
 
-    public function setDeviceInfo(?string $deviceInfo): static
+    public function setDeviceInfo(?string $deviceInfo): void
     {
         $this->deviceInfo = $deviceInfo;
-
-        return $this;
     }
 
     public function getLastIp(): ?string
@@ -130,11 +127,9 @@ class AccessToken implements \Stringable
         return $this->lastIp;
     }
 
-    public function setLastIp(?string $lastIp): static
+    public function setLastIp(?string $lastIp): void
     {
         $this->lastIp = $lastIp;
-
-        return $this;
     }
 
     public function isValid(): bool
@@ -142,11 +137,9 @@ class AccessToken implements \Stringable
         return $this->valid;
     }
 
-    public function setValid(bool $valid): static
+    public function setValid(bool $valid): void
     {
         $this->valid = $valid;
-
-        return $this;
     }
 
     /**
@@ -154,7 +147,7 @@ class AccessToken implements \Stringable
      */
     public function isExpired(): bool
     {
-        return $this->expiresAt < new \DateTimeImmutable();
+        return $this->expireTime < new \DateTimeImmutable();
     }
 
     /**
@@ -162,8 +155,14 @@ class AccessToken implements \Stringable
      */
     public function extend(int $expiresInSeconds = 3600): static
     {
-        $this->expiresAt = new \DateTimeImmutable(sprintf('+%d seconds', $expiresInSeconds));
-        $this->lastAccessedAt = new \DateTimeImmutable();
+        // 从当前过期时间延长，如果已过期则从当前时间开始
+        $now = new \DateTimeImmutable();
+        $baseTime = null !== $this->expireTime && $this->expireTime > $now
+            ? $this->expireTime
+            : $now;
+
+        $this->expireTime = $baseTime->modify(sprintf('+%d seconds', $expiresInSeconds));
+        $this->lastAccessTime = new \DateTimeImmutable();
 
         return $this;
     }
@@ -173,8 +172,8 @@ class AccessToken implements \Stringable
      */
     public function updateAccessInfo(?string $ip = null): static
     {
-        $this->lastAccessedAt = new \DateTimeImmutable();
-        if ($ip !== null) {
+        $this->lastAccessTime = new \DateTimeImmutable();
+        if (null !== $ip) {
             $this->lastIp = $ip;
         }
 
@@ -189,10 +188,10 @@ class AccessToken implements \Stringable
         $token = new self();
         $token->setUser($user);
         $token->setToken(bin2hex(random_bytes(32))); // 生成64字符的随机令牌
-        $token->setCreatedAt(new \DateTimeImmutable());
-        $token->setExpiresAt(new \DateTimeImmutable(sprintf('+%d seconds', $expiresInSeconds)));
+        $token->setCreateTime(new \DateTimeImmutable());
+        $token->setExpireTime(new \DateTimeImmutable(sprintf('+%d seconds', $expiresInSeconds)));
         $token->setDeviceInfo($deviceInfo);
-        
+
         return $token;
     }
 }

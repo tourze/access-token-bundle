@@ -1,8 +1,7 @@
 <?php
 
-namespace AccessTokenBundle\Command;
+namespace Tourze\AccessTokenBundle\Command;
 
-use AccessTokenBundle\Service\AccessTokenService;
 use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -11,6 +10,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Tourze\AccessTokenBundle\Service\AccessTokenService;
 
 #[AsCommand(
     name: self::NAME,
@@ -19,11 +19,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class CreateAccessTokenCommand extends Command
 {
     public const NAME = 'app:create-access-token';
+
     public function __construct(
         private readonly UserLoaderInterface $userLoader,
         private readonly AccessTokenService $accessTokenService,
-    )
-    {
+    ) {
         parent::__construct();
     }
 
@@ -32,27 +32,30 @@ class CreateAccessTokenCommand extends Command
         $this
             ->addArgument('username', InputArgument::REQUIRED, '用户名')
             ->addOption('expires', 't', InputOption::VALUE_OPTIONAL, '令牌有效期（秒）', 86400)
-            ->addOption('device', 'd', InputOption::VALUE_OPTIONAL, '设备信息', null);
+            ->addOption('device', 'd', InputOption::VALUE_OPTIONAL, '设备信息', null)
+        ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $username = $input->getArgument('username');
-        $expiresIn = (int)$input->getOption('expires');
+        $expiresIn = (int) $input->getOption('expires');
         $deviceInfo = $input->getOption('device');
 
         // 查找用户
         $user = $this->userLoader->loadUserByIdentifier($username);
 
-        if ($user === null) {
+        if (null === $user) {
             $io->error(sprintf('用户 "%s" 不存在', $username));
+
             return Command::FAILURE;
         }
 
         // 使用服务创建访问令牌
         $accessToken = $this->accessTokenService->createToken($user, $expiresIn, $deviceInfo);
-        $expireDate = $accessToken->getExpiresAt()->format('Y-m-d H:i:s');
+        $expireTime = $accessToken->getExpireTime();
+        $expireDate = null !== $expireTime ? $expireTime->format('Y-m-d H:i:s') : '未知';
 
         $io->success([
             sprintf('为用户 "%s" 生成了新的访问令牌', $username),

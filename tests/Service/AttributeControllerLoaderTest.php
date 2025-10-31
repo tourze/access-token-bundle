@@ -1,41 +1,49 @@
 <?php
 
-namespace AccessTokenBundle\Tests\Service;
+namespace Tourze\AccessTokenBundle\Tests\Service;
 
-use AccessTokenBundle\Service\AttributeControllerLoader;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Routing\RouteCollection;
+use Tourze\AccessTokenBundle\Service\AttributeControllerLoader;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 
-class AttributeControllerLoaderTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(AttributeControllerLoader::class)]
+#[RunTestsInSeparateProcesses]
+final class AttributeControllerLoaderTest extends AbstractIntegrationTestCase
 {
-    private AttributeControllerLoader $loader;
-
-    protected function setUp(): void
+    protected function onSetUp(): void
     {
-        $this->loader = new AttributeControllerLoader();
+        // 集成测试不需要额外的设置
     }
 
-    public function testSupports_shouldReturnFalse(): void
+    public function testSupportsShouldReturnFalse(): void
     {
         // supports方法应始终返回false，因为这个加载器通过autoload方法自动加载路由
-        $result = $this->loader->supports('some_resource');
+        $loader = self::getService(AttributeControllerLoader::class);
+        $result = $loader->supports('some_resource');
         $this->assertFalse($result);
 
-        $result = $this->loader->supports('some_resource', 'some_type');
+        $result = $loader->supports('some_resource', 'some_type');
         $this->assertFalse($result);
     }
 
-    public function testLoad_shouldReturnRouteCollection(): void
+    public function testLoadShouldReturnRouteCollection(): void
     {
         // 由于load方法内部调用了autoload，我们测试它返回的集合类型
-        $result = $this->loader->load('some_resource');
+        $loader = self::getService(AttributeControllerLoader::class);
+        $result = $loader->load('some_resource');
 
         $this->assertInstanceOf(RouteCollection::class, $result);
     }
 
-    public function testAutoload_shouldReturnRouteCollection(): void
+    public function testAutoloadShouldReturnRouteCollection(): void
     {
-        $result = $this->loader->autoload();
+        $loader = self::getService(AttributeControllerLoader::class);
+        $result = $loader->autoload();
 
         $this->assertInstanceOf(RouteCollection::class, $result);
 

@@ -4,11 +4,13 @@ services:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
-  AccessTokenBundle\Command\:
+  Tourze\AccessTokenBundle\Command\:
     resource: '../../Command/'
-  AccessTokenBundle\Controller\:
+  Tourze\AccessTokenBundle\Controller\:
     resource: '../../Controller/'
-  AccessTokenBundle\Repository\:
+  Tourze\AccessTokenBundle\Procedure\:
+    resource: '../../Procedure/'
+  Tourze\AccessTokenBundle\Repository\:
     resource: '../../Repository/'
-  AccessTokenBundle\Service\:
+  Tourze\AccessTokenBundle\Service\:
     resource: '../../Service/'

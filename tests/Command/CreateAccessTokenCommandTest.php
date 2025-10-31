@@ -1,171 +1,228 @@
 <?php
 
-namespace AccessTokenBundle\Tests\Command;
+namespace Tourze\AccessTokenBundle\Tests\Command;
 
-use AccessTokenBundle\Command\CreateAccessTokenCommand;
-use AccessTokenBundle\Entity\AccessToken;
-use AccessTokenBundle\Service\AccessTokenService;
-use PHPUnit\Framework\TestCase;
-use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
-use Symfony\Component\Console\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Tourze\AccessTokenBundle\Command\CreateAccessTokenCommand;
+use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
 
-class CreateAccessTokenCommandTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(CreateAccessTokenCommand::class)]
+#[RunTestsInSeparateProcesses]
+final class CreateAccessTokenCommandTest extends AbstractCommandTestCase
 {
-    private UserLoaderInterface $userLoader;
-    private AccessTokenService $accessTokenService;
-    private CreateAccessTokenCommand $command;
-    private CommandTester $commandTester;
-
-    protected function setUp(): void
+    protected function onSetUp(): void
     {
-        $this->userLoader = $this->createMock(UserLoaderInterface::class);
-        $this->accessTokenService = $this->createMock(AccessTokenService::class);
-        $this->command = new CreateAccessTokenCommand(
-            $this->userLoader,
-            $this->accessTokenService
-        );
-
-        $application = new Application();
-        $application->add($this->command);
-
-        $this->commandTester = new CommandTester($this->command);
+        // AbstractCommandTestCase 会自动清理数据库
     }
 
-    public function testExecute_withValidUsername_shouldCreateToken(): void
+    protected function getCommandTester(): CommandTester
     {
-        $username = 'test_user';
-        $user = $this->createMock(UserInterface::class);
-        $token = $this->createConfiguredMock(AccessToken::class, [
-            'getToken' => 'generated_token_value',
-            'getExpiresAt' => new \DateTimeImmutable('2023-01-01 12:00:00')
-        ]);
+        $command = self::getService(CreateAccessTokenCommand::class);
+        $this->assertInstanceOf(CreateAccessTokenCommand::class, $command);
 
-        // 配置仓库模拟对象返回用户
-        $this->userLoader->expects($this->once())
-            ->method('loadUserByIdentifier')
-            ->with($username)
-            ->willReturn($user);
+        return new CommandTester($command);
+    }
 
-        // 配置服务模拟对象创建令牌
-        $this->accessTokenService->expects($this->once())
-            ->method('createToken')
-            ->with($user, 86400, null)
-            ->willReturn($token);
+    public function testExecuteWithValidUsernameShouldCreateToken(): void
+    {
+        $username = 'test@example.com';
+        // 创建真实的测试用户
+        $user = $this->createNormalUser($username);
 
         // 执行命令
-        $exitCode = $this->commandTester->execute([
-            'username' => $username
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
+            'username' => $username,
         ]);
 
         // 验证退出代码
-        $this->assertEquals(0, $exitCode);
+        $this->assertEquals(0, $exitCode, 'Command output: ' . $commandTester->getDisplay());
 
         // 验证输出
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('为用户 "test_user" 生成了新的访问令牌', $output);
-        $this->assertStringContainsString('令牌值: generated_token_value', $output);
-        $this->assertStringContainsString('过期时间: 2023-01-01 12:00:00', $output);
-        $this->assertStringContainsString('使用方式: Authorization: Bearer generated_token_value', $output);
+        $output = $commandTester->getDisplay();
+        $this->assertStringContainsString('为用户 "test@example.com" 生成了新的访问令牌', $output);
+        $this->assertStringContainsString('令牌值: ', $output);
+        $this->assertStringContainsString('过期时间: ', $output);
+        $this->assertStringContainsString('使用方式: Authorization: Bearer ', $output);
+
+        // 验证token确实被创建了
+        $repository = self::getService(AccessTokenRepository::class);
+        $tokens = $repository->findValidTokensByUser($user);
+        $this->assertCount(1, $tokens);
     }
 
-    public function testExecute_withInvalidUsername_shouldReturnFailure(): void
+    public function testExecuteWithInvalidUsernameShouldReturnFailure(): void
     {
-        $username = 'invalid_user';
-
-        // 配置仓库模拟对象返回null，表示用户不存在
-        $this->userLoader->expects($this->once())
-            ->method('loadUserByIdentifier')
-            ->with($username)
-            ->willReturn(null);
-
-        // 配置服务模拟对象，期望不被调用
-        $this->accessTokenService->expects($this->never())
-            ->method('createToken');
+        $username = 'invalid_user@example.com';
 
         // 执行命令
-        $exitCode = $this->commandTester->execute([
-            'username' => $username
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
+            'username' => $username,
         ]);
 
         // 验证退出代码
         $this->assertEquals(1, $exitCode);
 
         // 验证输出
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('用户 "invalid_user" 不存在', $output);
+        $output = $commandTester->getDisplay();
+        $this->assertStringContainsString('用户 "invalid_user@example.com" 不存在', $output);
     }
 
-    public function testExecute_withCustomExpiresOption_shouldCreateTokenWithCustomExpires(): void
+    public function testExecuteWithCustomExpiresOptionShouldCreateTokenWithCustomExpires(): void
     {
-        $username = 'test_user';
+        $username = 'test_expires@example.com';
         $customExpires = 3600; // 1小时
-        $user = $this->createMock(UserInterface::class);
-        $token = $this->createConfiguredMock(AccessToken::class, [
-            'getToken' => 'generated_token_value',
-            'getExpiresAt' => new \DateTimeImmutable('2023-01-01 10:00:00')
-        ]);
-
-        // 配置仓库模拟对象返回用户
-        $this->userLoader->expects($this->once())
-            ->method('loadUserByIdentifier')
-            ->with($username)
-            ->willReturn($user);
-
-        // 配置服务模拟对象创建令牌，期望使用自定义过期时间
-        $this->accessTokenService->expects($this->once())
-            ->method('createToken')
-            ->with($user, $customExpires, null)
-            ->willReturn($token);
+        // 创建真实的测试用户
+        $user = $this->createNormalUser($username);
 
         // 执行命令，带上自定义过期时间选项
-        $exitCode = $this->commandTester->execute([
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
             'username' => $username,
-            '--expires' => $customExpires
+            '--expires' => $customExpires,
         ]);
 
         // 验证退出代码
-        $this->assertEquals(0, $exitCode);
+        $this->assertEquals(0, $exitCode, 'Command output: ' . $commandTester->getDisplay());
 
         // 验证输出
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('为用户 "test_user" 生成了新的访问令牌', $output);
+        $output = $commandTester->getDisplay();
+        $this->assertStringContainsString('为用户 "test_expires@example.com" 生成了新的访问令牌', $output);
+        $this->assertStringContainsString('令牌值: ', $output);
+        $this->assertStringContainsString('过期时间: ', $output);
+
+        // 验证token的过期时间
+        $repository = self::getService(AccessTokenRepository::class);
+        $tokens = $repository->findValidTokensByUser($user);
+        $this->assertCount(1, $tokens);
+        $token = $tokens[0];
+
+        // 检查过期时间是否在正确的范围内（约1小时后）
+        $now = new \DateTimeImmutable();
+        $expireTime = $token->getExpireTime();
+        $this->assertNotNull($expireTime);
+        $diff = $expireTime->getTimestamp() - $now->getTimestamp();
+        $this->assertGreaterThan(3500, $diff); // 至少59分钟
+        $this->assertLessThan(3700, $diff); // 最多61分钟
     }
 
-    public function testExecute_withDeviceOption_shouldCreateTokenWithDeviceInfo(): void
+    public function testExecuteWithDeviceOptionShouldCreateTokenWithDeviceInfo(): void
     {
-        $username = 'test_user';
+        $username = 'test_device@example.com';
         $deviceInfo = 'Test Device';
-        $user = $this->createMock(UserInterface::class);
-        $token = $this->createConfiguredMock(AccessToken::class, [
-            'getToken' => 'generated_token_value',
-            'getExpiresAt' => new \DateTimeImmutable('2023-01-01 10:00:00')
-        ]);
-
-        // 配置仓库模拟对象返回用户
-        $this->userLoader->expects($this->once())
-            ->method('loadUserByIdentifier')
-            ->with($username)
-            ->willReturn($user);
-
-        // 配置服务模拟对象创建令牌，期望使用设备信息
-        $this->accessTokenService->expects($this->once())
-            ->method('createToken')
-            ->with($user, 86400, $deviceInfo)
-            ->willReturn($token);
+        // 创建真实的测试用户
+        $user = $this->createNormalUser($username);
 
         // 执行命令，带上设备信息选项
-        $exitCode = $this->commandTester->execute([
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
             'username' => $username,
-            '--device' => $deviceInfo
+            '--device' => $deviceInfo,
         ]);
 
         // 验证退出代码
-        $this->assertEquals(0, $exitCode);
+        $this->assertEquals(0, $exitCode, 'Command output: ' . $commandTester->getDisplay());
 
         // 验证输出
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('为用户 "test_user" 生成了新的访问令牌', $output);
+        $output = $commandTester->getDisplay();
+        $this->assertStringContainsString('为用户 "test_device@example.com" 生成了新的访问令牌', $output);
+        $this->assertStringContainsString('令牌值: ', $output);
+        $this->assertStringContainsString('过期时间: ', $output);
+
+        // 验证token的设备信息
+        $repository = self::getService(AccessTokenRepository::class);
+        $tokens = $repository->findValidTokensByUser($user);
+        $this->assertCount(1, $tokens);
+        $token = $tokens[0];
+        $this->assertEquals($deviceInfo, $token->getDeviceInfo());
+    }
+
+    public function testArgumentUsername(): void
+    {
+        $username = 'test_argument@example.com';
+        // 创建真实的测试用户
+        $user = $this->createNormalUser($username);
+
+        // 执行命令，验证username参数
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
+            'username' => $username,
+        ]);
+
+        // 验证退出代码
+        $this->assertEquals(0, $exitCode, 'Command output: ' . $commandTester->getDisplay());
+
+        // 验证输出包含用户名
+        $output = $commandTester->getDisplay();
+        $this->assertStringContainsString('为用户 "test_argument@example.com" 生成了新的访问令牌', $output);
+
+        // 验证token确实被创建了
+        $repository = self::getService(AccessTokenRepository::class);
+        $tokens = $repository->findValidTokensByUser($user);
+        $this->assertCount(1, $tokens);
+    }
+
+    public function testOptionExpires(): void
+    {
+        $username = 'test_option_expires@example.com';
+        $customExpires = 7200; // 2小时
+        // 创建真实的测试用户
+        $user = $this->createNormalUser($username);
+
+        // 执行命令，验证--expires选项
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
+            'username' => $username,
+            '--expires' => $customExpires,
+        ]);
+
+        // 验证退出代码
+        $this->assertEquals(0, $exitCode, 'Command output: ' . $commandTester->getDisplay());
+
+        // 验证token的过期时间设置正确
+        $repository = self::getService(AccessTokenRepository::class);
+        $tokens = $repository->findValidTokensByUser($user);
+        $this->assertCount(1, $tokens);
+        $token = $tokens[0];
+
+        // 检查过期时间是否在正确的范围内（约2小时后）
+        $now = new \DateTimeImmutable();
+        $expireTime = $token->getExpireTime();
+        $this->assertNotNull($expireTime);
+        $diff = $expireTime->getTimestamp() - $now->getTimestamp();
+        $this->assertGreaterThan(7100, $diff); // 至少1小时58分钟
+        $this->assertLessThan(7300, $diff); // 最多2小时2分钟
+    }
+
+    public function testOptionDevice(): void
+    {
+        $username = 'test_option_device@example.com';
+        $deviceInfo = 'iPhone 13 Pro Max';
+        // 创建真实的测试用户
+        $user = $this->createNormalUser($username);
+
+        // 执行命令，验证--device选项
+        $commandTester = $this->getCommandTester();
+        $exitCode = $commandTester->execute([
+            'username' => $username,
+            '--device' => $deviceInfo,
+        ]);
+
+        // 验证退出代码
+        $this->assertEquals(0, $exitCode, 'Command output: ' . $commandTester->getDisplay());
+
+        // 验证token的设备信息设置正确
+        $repository = self::getService(AccessTokenRepository::class);
+        $tokens = $repository->findValidTokensByUser($user);
+        $this->assertCount(1, $tokens);
+        $token = $tokens[0];
+        $this->assertEquals($deviceInfo, $token->getDeviceInfo());
     }
 }

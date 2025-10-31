@@ -1,26 +1,37 @@
 <?php
 
-namespace AccessTokenBundle\Controller;
+namespace Tourze\AccessTokenBundle\Controller;
 
-use AccessTokenBundle\Service\AccessTokenService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Tourze\AccessTokenBundle\Service\AccessTokenService;
 
-class RevokeTokenController extends AbstractController
+final class RevokeTokenController extends AbstractController
 {
     public function __construct(
-        private readonly AccessTokenService $accessTokenService
+        private readonly AccessTokenService $accessTokenService,
     ) {
     }
 
-    #[Route(path: '/api/token/revoke/{id}', name: 'api_revoke_token', methods: ['POST'])]
-    public function __invoke(int $id, #[CurrentUser] ?UserInterface $user): JsonResponse
+    #[Route(path: '/api/token/revoke/{id}', name: 'api_revoke_token', methods: ['POST', 'HEAD', 'OPTIONS'])]
+    public function __invoke(Request $request, int $id, #[CurrentUser] ?UserInterface $user): Response
     {
-        if ($user === null) {
+        if ('OPTIONS' === $request->getMethod()) {
+            $response = new Response();
+            $response->headers->set('Allow', 'POST, HEAD, OPTIONS');
+
+            return $response;
+        }
+
+        if ('HEAD' === $request->getMethod()) {
+            return new Response();
+        }
+
+        if (null === $user) {
             return $this->json(['error' => '未授权访问'], Response::HTTP_UNAUTHORIZED);
         }
 

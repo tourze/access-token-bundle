@@ -1,41 +1,61 @@
 {
   "name": "tourze/access-token-bundle",
-  "description": "Token管理",
+  "description": "Token Manage",
   "type": "symfony-bundle",
   "license": "MIT",
   "require": {
-    "php": "^8.1",
+    "ext-date": "*",
     "ext-filter": "*",
+    "ext-random": "*",
     "doctrine/dbal": "^4.0",
     "doctrine/doctrine-bundle": "^2.13",
     "doctrine/orm": "^3.0",
-    "doctrine/persistence": "^3.1 || ^4",
-    "symfony/config": "^6.4",
-    "symfony/console": "^6.4",
-    "symfony/dependency-injection": "^6.4",
-    "symfony/doctrine-bridge": "^6.4",
-    "symfony/framework-bundle": "^6.4",
-    "symfony/http-foundation": "^6.4",
-    "symfony/http-kernel": "^6.4",
-    "symfony/routing": "^6.4",
-    "symfony/security-core": "^6.4",
-    "symfony/security-http": "^6.4",
-    "symfony/yaml": "^6.4 || ^7.1",
-    "tourze/symfony-routing-auto-loader-bundle": "0.0.*"
+    "doctrine/persistence": "^4.1",
+    "easycorp/easyadmin-bundle": "^4",
+    "knplabs/knp-menu": "^3.7",
+    "symfony/config": "^7.3",
+    "symfony/console": "^7.3",
+    "symfony/dependency-injection": "^7.3",
+    "symfony/doctrine-bridge": "^7.3",
+    "symfony/framework-bundle": "^7.3",
+    "symfony/http-foundation": "^7.3",
+    "symfony/http-kernel": "^7.3",
+    "symfony/routing": "^7.3",
+    "symfony/security-bundle": "^7.3",
+    "symfony/security-core": "^7.3",
+    "symfony/security-http": "^7.3",
+    "symfony/twig-bundle": "^7.3",
+    "symfony/yaml": "^7.3",
+    "tourze/biz-user-bundle": "0.0.*",
+    "tourze/bundle-dependency": "1.*",
+    "tourze/doctrine-indexed-bundle": "0.0.*",
+    "tourze/easy-admin-menu-bundle": "0.1.*",
+    "tourze/json-rpc-core": "0.0.*",
+    "tourze/symfony-dependency-service-loader": "0.0.*",
+    "tourze/symfony-routing-auto-loader-bundle": "0.0.*",
+    "tourze/user-service-contracts": "0.0.*"
   },
   "require-dev": {
     "deptrac/deptrac": "^3.0",
+    "doctrine/data-fixtures": "^2.0",
+    "doctrine/doctrine-fixtures-bundle": "^4.0",
     "phpstan/phpstan": "^2.1",
-    "phpunit/phpunit": "^10.0"
+    "phpunit/phpunit": "^11.5",
+    "tourze/phpunit-base": "1.*",
+    "tourze/phpunit-doctrine-entity": "0.0.*",
+    "tourze/phpunit-symfony-kernel-test": "0.0.*",
+    "tourze/phpunit-symfony-unit-test": "0.0.*",
+    "tourze/phpunit-symfony-web-test": "0.0.*",
+    "tourze/symfony-testing-framework": "0.0.*"
   },
   "autoload": {
     "psr-4": {
-      "AccessTokenBundle\\": "src"
+      "Tourze\\AccessTokenBundle\\": "src"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "AccessTokenBundle\\Tests\\": "tests"
+      "Tourze\\AccessTokenBundle\\Tests\\": "tests"
     }
   }
 }

@@ -1,116 +1,118 @@
 <?php
 
-namespace AccessTokenBundle\Tests\Service;
+namespace Tourze\AccessTokenBundle\Tests\Service;
 
-use AccessTokenBundle\Entity\AccessToken;
-use AccessTokenBundle\Repository\AccessTokenRepository;
-use AccessTokenBundle\Service\AccessTokenService;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Security\Core\User\UserInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Tourze\AccessTokenBundle\Entity\AccessToken;
+use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
+use Tourze\AccessTokenBundle\Service\AccessTokenService;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 
-class AccessTokenServiceTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(AccessTokenService::class)]
+#[RunTestsInSeparateProcesses]
+final class AccessTokenServiceTest extends AbstractIntegrationTestCase
 {
-    private AccessTokenRepository $repository;
-    private RequestStack $requestStack;
-    private Request $request;
     private AccessTokenService $service;
 
-    protected function setUp(): void
+    private AccessTokenRepository $repository;
+
+    protected function onSetUp(): void
     {
-        $this->repository = $this->createMock(AccessTokenRepository::class);
-        $this->requestStack = $this->createMock(RequestStack::class);
-        $this->request = $this->createMock(Request::class);
-
-        // 配置RequestStack以返回Request对象
-        $this->requestStack->method('getCurrentRequest')
-            ->willReturn($this->request);
-
-        // 创建服务实例，设置默认过期时间为86400秒（1天）
-        $this->service = new AccessTokenService(
-            $this->repository,
-            $this->requestStack,
-            86400
-        );
+        $this->service = self::getService(AccessTokenService::class);
+        $this->repository = self::getService(AccessTokenRepository::class);
     }
 
-    public function testCreateToken_shouldCreateAndSaveToken(): void
+    protected function onTearDown(): void
     {
-        $user = $this->createMock(UserInterface::class);
+        // 清理环境变量
+        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'], $_ENV['ACCESS_TOKEN_RENEWAL_TIME']);
+    }
 
-        // 期望save方法被调用一次
-        $this->repository->expects($this->once())
-            ->method('save')
-            ->with($this->isInstanceOf(AccessToken::class));
+    public function testCreateTokenShouldCreateAndSaveToken(): void
+    {
+        $user = $this->createNormalUser('test@example.com');
 
         // 调用服务方法
         $createdToken = $this->service->createToken($user);
 
         // 验证返回的是AccessToken实例
         $this->assertInstanceOf(AccessToken::class, $createdToken);
+        $this->assertNotNull($createdToken->getToken());
+        $this->assertSame($user, $createdToken->getUser());
+        $this->assertTrue($createdToken->isValid());
+        $this->assertFalse($createdToken->isExpired());
+
+        // 验证令牌被保存到数据库
+        $tokenValue = $createdToken->getToken();
+        $this->assertNotNull($tokenValue);
+        $foundToken = $this->repository->findOneByValue($tokenValue);
+        $this->assertNotNull($foundToken);
+        $this->assertEquals($createdToken->getId(), $foundToken->getId());
     }
 
-    public function testCreateToken_withCustomExpiry_shouldUseCustomExpiry(): void
+    public function testCreateTokenWithCustomExpiryShouldUseCustomExpiry(): void
     {
-        $user = $this->createMock(UserInterface::class);
+        $user = $this->createNormalUser('test@example.com');
         $customExpiry = 7200; // 2小时
-
-        // 期望save方法被调用一次
-        $this->repository->expects($this->once())
-            ->method('save')
-            ->with($this->isInstanceOf(AccessToken::class));
 
         // 调用服务方法
         $createdToken = $this->service->createToken($user, $customExpiry);
 
         // 验证返回的是AccessToken实例
         $this->assertInstanceOf(AccessToken::class, $createdToken);
+
+        // 验证过期时间大约是2小时后
+        $expireTime = $createdToken->getExpireTime();
+        $this->assertNotNull($expireTime);
+        $expectedExpiry = (new \DateTimeImmutable())->modify('+7200 seconds');
+        $diff = abs($expectedExpiry->getTimestamp() - $expireTime->getTimestamp());
+        $this->assertLessThan(5, $diff); // 允许5秒误差
     }
 
-    public function testFindToken_shouldCallRepositoryMethod(): void
+    public function testFindTokenShouldReturnTokenFromRepository(): void
     {
-        $token = new AccessToken();
-        $tokenValue = 'test_token_value';
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
 
-        // 设置仓库方法findOneByValue期望返回模拟的令牌
-        $this->repository->expects($this->once())
-            ->method('findOneByValue')
-            ->with($tokenValue)
-            ->willReturn($token);
-
-        // 调用服务方法
+        // 调用服务方法查找令牌
+        $tokenValue = $token->getToken();
+        $this->assertNotNull($tokenValue);
         $result = $this->service->findToken($tokenValue);
 
-        // 验证返回的是同一个令牌实例
-        $this->assertSame($token, $result);
+        // 验证返回的是同一个令牌
+        $this->assertNotNull($result);
+        $this->assertEquals($token->getId(), $result->getId());
     }
 
-    public function testFindTokensByUser_shouldCallRepositoryMethod(): void
+    public function testFindTokensByUserShouldReturnUserTokens(): void
     {
-        $tokens = [new AccessToken(), new AccessToken()];
-        $user = $this->createMock(UserInterface::class);
+        // 禁用防止多点登录功能
+        $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'false';
 
-        // 设置仓库方法findValidTokensByUser期望返回模拟的令牌数组
-        $this->repository->expects($this->once())
-            ->method('findValidTokensByUser')
-            ->with($user)
-            ->willReturn($tokens);
+        $user = $this->createNormalUser('test@example.com');
+
+        // 创建多个令牌
+        $token1 = $this->service->createToken($user);
+        $token2 = $this->service->createToken($user);
 
         // 调用服务方法
         $result = $this->service->findTokensByUser($user);
 
-        // 验证返回的是同一个令牌数组
-        $this->assertSame($tokens, $result);
+        // 验证返回的令牌
+        $this->assertCount(2, $result);
+        $tokenIds = array_map(fn ($t) => $t->getId(), $result);
+        $this->assertContains($token1->getId(), $tokenIds);
+        $this->assertContains($token2->getId(), $tokenIds);
     }
 
-    public function testValidateToken_withValidToken_shouldReturnTrue(): void
+    public function testValidateTokenWithValidTokenShouldReturnTrue(): void
     {
-        $token = $this->createMock(AccessToken::class);
-
-        // 配置令牌模拟对象
-        $token->method('isValid')->willReturn(true);
-        $token->method('isExpired')->willReturn(false);
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
 
         // 调用服务方法
         $result = $this->service->validateToken($token);
@@ -119,13 +121,13 @@ class AccessTokenServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function testValidateToken_withInvalidToken_shouldReturnFalse(): void
+    public function testValidateTokenWithInvalidTokenShouldReturnFalse(): void
     {
-        $token = $this->createMock(AccessToken::class);
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
 
-        // 配置令牌模拟对象
-        $token->method('isValid')->willReturn(false);
-        $token->method('isExpired')->willReturn(false);
+        // 撤销令牌
+        $this->service->revokeToken($token);
 
         // 调用服务方法
         $result = $this->service->validateToken($token);
@@ -134,13 +136,13 @@ class AccessTokenServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testValidateToken_withExpiredToken_shouldReturnFalse(): void
+    public function testValidateTokenWithExpiredTokenShouldReturnFalse(): void
     {
-        $token = $this->createMock(AccessToken::class);
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user, 1); // 1秒后过期
 
-        // 配置令牌模拟对象
-        $token->method('isValid')->willReturn(true);
-        $token->method('isExpired')->willReturn(true);
+        // 等待令牌过期
+        sleep(2);
 
         // 调用服务方法
         $result = $this->service->validateToken($token);
@@ -149,255 +151,225 @@ class AccessTokenServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testValidateAndExtendToken_withValidToken_shouldExtendAndReturnToken(): void
+    public function testValidateAndExtendTokenWithValidTokenShouldExtendAndReturnToken(): void
     {
-        $tokenValue = 'valid_token';
-        $clientIp = '192.168.1.1';
-        $token = $this->createMock(AccessToken::class);
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
+        $originalExpiry = $token->getExpireTime();
 
-        // 配置Request模拟对象
-        $this->request->method('getClientIp')
-            ->willReturn($clientIp);
-
-        // 配置仓库模拟对象
-        $this->repository->method('findOneByValue')
-            ->with($tokenValue)
-            ->willReturn($token);
-
-        // 配置令牌模拟对象
-        $token->method('isValid')->willReturn(true);
-        $token->method('isExpired')->willReturn(false);
-
-        // 期望令牌的updateAccessInfo和extend方法被调用
-        $token->expects($this->once())
-            ->method('updateAccessInfo')
-            ->with($clientIp)
-            ->willReturnSelf();
-
-        $token->expects($this->once())
-            ->method('extend')
-            ->with(3600) // 默认续期1小时
-            ->willReturnSelf();
-
-        // 期望仓库的save方法被调用
-        $this->repository->expects($this->once())
-            ->method('save')
-            ->with($token);
+        // 等待一秒以确保时间有变化
+        sleep(1);
 
         // 调用服务方法
+        $tokenValue = $token->getToken();
+        $this->assertNotNull($tokenValue);
         $result = $this->service->validateAndExtendToken($tokenValue);
 
         // 验证结果
-        $this->assertSame($token, $result);
+        $this->assertNotNull($result);
+        $this->assertEquals($token->getId(), $result->getId());
+        $resultExpireTime = $result->getExpireTime();
+        $this->assertNotNull($originalExpiry);
+        $this->assertNotNull($resultExpireTime);
+        $this->assertGreaterThan($originalExpiry->getTimestamp(), $resultExpireTime->getTimestamp());
+        $this->assertNotNull($result->getLastAccessTime());
     }
 
-    public function testValidateAndExtendToken_withInvalidToken_shouldReturnNull(): void
+    public function testValidateAndExtendTokenWithInvalidTokenShouldReturnNull(): void
     {
-        $tokenValue = 'invalid_token';
+        // 调用服务方法
+        $result = $this->service->validateAndExtendToken('invalid_token');
 
-        // 配置仓库模拟对象
-        $this->repository->method('findOneByValue')
-            ->with($tokenValue)
-            ->willReturn(null);
+        // 验证结果
+        $this->assertNull($result);
+    }
+
+    public function testValidateAndExtendTokenWithExpiredTokenShouldReturnNull(): void
+    {
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user, 1); // 1秒后过期
+
+        // 等待令牌过期
+        sleep(2);
 
         // 调用服务方法
+        $tokenValue = $token->getToken();
+        $this->assertNotNull($tokenValue);
         $result = $this->service->validateAndExtendToken($tokenValue);
 
         // 验证结果
         $this->assertNull($result);
     }
 
-    public function testValidateAndExtendToken_withExpiredToken_shouldReturnNull(): void
+    public function testRevokeTokenShouldSetTokenInvalid(): void
     {
-        $tokenValue = 'expired_token';
-        $token = $this->createMock(AccessToken::class);
-
-        // 配置仓库模拟对象
-        $this->repository->method('findOneByValue')
-            ->with($tokenValue)
-            ->willReturn($token);
-
-        // 配置令牌模拟对象
-        $token->method('isValid')->willReturn(true);
-        $token->method('isExpired')->willReturn(true);
-
-        // 调用服务方法
-        $result = $this->service->validateAndExtendToken($tokenValue);
-
-        // 验证结果
-        $this->assertNull($result);
-    }
-
-    public function testRevokeToken_shouldSetTokenInvalidAndSave(): void
-    {
-        $token = $this->createMock(AccessToken::class);
-
-        // 期望令牌的setValid方法被调用
-        $token->expects($this->once())
-            ->method('setValid')
-            ->with(false)
-            ->willReturnSelf();
-
-        // 期望仓库的save方法被调用
-        $this->repository->expects($this->once())
-            ->method('save')
-            ->with($token);
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
+        $tokenId = $token->getId();
 
         // 调用服务方法
         $this->service->revokeToken($token);
+
+        // 直接从数据库获取令牌（不使用 findOneByValue，因为它会过滤无效令牌）
+        $updatedToken = self::getEntityManager()->find(AccessToken::class, $tokenId);
+        $this->assertNotNull($updatedToken);
+        $this->assertFalse($updatedToken->isValid());
     }
 
-    public function testDeleteToken_shouldRemoveTokenFromRepository(): void
+    public function testDeleteTokenShouldRemoveTokenFromRepository(): void
     {
-        $token = $this->createMock(AccessToken::class);
-
-        // 期望仓库的remove方法被调用
-        $this->repository->expects($this->once())
-            ->method('remove')
-            ->with($token);
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
+        $tokenValue = $token->getToken();
 
         // 调用服务方法
         $this->service->deleteToken($token);
+
+        // 验证令牌已被删除
+        $this->assertNotNull($tokenValue);
+        $deletedToken = $this->repository->findOneByValue($tokenValue);
+        $this->assertNull($deletedToken);
     }
 
-    public function testCleanupExpiredTokens_shouldCallRepositoryMethod(): void
+    public function testCleanupExpiredTokensShouldRemoveExpiredTokens(): void
     {
-        // 期望仓库的removeExpiredTokens方法被调用，并返回删除的数量
-        $this->repository->expects($this->once())
-            ->method('removeExpiredTokens')
-            ->willReturn(5);
+        $user = $this->createNormalUser('test@example.com');
+
+        // 创建一个已过期的令牌
+        $expiredToken = $this->service->createToken($user, 1); // 1秒后过期
+        sleep(2);
+
+        // 创建一个有效的令牌
+        $validToken = $this->service->createToken($user);
 
         // 调用服务方法
         $result = $this->service->cleanupExpiredTokens();
 
         // 验证结果
-        $this->assertEquals(5, $result);
+        $this->assertGreaterThanOrEqual(1, $result);
+
+        // 验证过期令牌被删除
+        $expiredTokenValue = $expiredToken->getToken();
+        $this->assertNotNull($expiredTokenValue);
+        $this->assertNull($this->repository->findOneByValue($expiredTokenValue));
+
+        // 验证有效令牌仍存在
+        $validTokenValue = $validToken->getToken();
+        $this->assertNotNull($validTokenValue);
+        $this->assertNotNull($this->repository->findOneByValue($validTokenValue));
     }
 
-    public function testCreateToken_withPreventMultipleLoginEnabled_shouldRevokeExistingTokens(): void
+    public function testCreateTokenWithPreventMultipleLoginEnabledShouldRevokeExistingTokens(): void
     {
         // 设置环境变量启用防止多点登录
         $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'true';
 
-        $user = $this->createMock(UserInterface::class);
-        $existingToken1 = $this->createMock(AccessToken::class);
-        $existingToken2 = $this->createMock(AccessToken::class);
-        $existingTokens = [$existingToken1, $existingToken2];
+        $user = $this->createNormalUser('test@example.com');
 
-        // 配置仓库返回现有令牌
-        $this->repository->expects($this->once())
-            ->method('findValidTokensByUser')
-            ->with($user)
-            ->willReturn($existingTokens);
+        // 创建现有令牌
+        $existingToken1 = $this->service->createToken($user);
+        $existingToken2 = $this->service->createToken($user);
 
-        // 期望现有令牌被吊销
-        $existingToken1->expects($this->once())
-            ->method('setValid')
-            ->with(false)
-            ->willReturnSelf();
+        // 创建新令牌
+        $newToken = $this->service->createToken($user);
 
-        $existingToken2->expects($this->once())
-            ->method('setValid')
-            ->with(false)
-            ->willReturnSelf();
+        // 验证现有令牌被撤销
+        $token1 = self::getEntityManager()->find(AccessToken::class, $existingToken1->getId());
+        $token2 = self::getEntityManager()->find(AccessToken::class, $existingToken2->getId());
+        $this->assertNotNull($token1);
+        $this->assertNotNull($token2);
+        $this->assertFalse($token1->isValid());
+        $this->assertFalse($token2->isValid());
 
-        // 期望save方法被调用3次（2次吊销 + 1次创建新令牌）
-        $this->repository->expects($this->exactly(3))
-            ->method('save');
-
-        // 调用服务方法
-        $createdToken = $this->service->createToken($user);
-
-        // 验证返回的是AccessToken实例
-        $this->assertInstanceOf(AccessToken::class, $createdToken);
-
-        // 清理环境变量
-        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+        // 验证新令牌有效
+        $this->assertTrue($newToken->isValid());
     }
 
-    public function testCreateToken_withPreventMultipleLoginDisabled_shouldNotRevokeExistingTokens(): void
+    public function testCreateTokenWithPreventMultipleLoginDisabledShouldNotRevokeExistingTokens(): void
     {
         // 设置环境变量禁用防止多点登录
         $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'false';
 
-        $user = $this->createMock(UserInterface::class);
+        $user = $this->createNormalUser('test@example.com');
 
-        // 期望不会查询现有令牌
-        $this->repository->expects($this->never())
-            ->method('findValidTokensByUser');
+        // 创建现有令牌
+        $existingToken = $this->service->createToken($user);
 
-        // 期望save方法只被调用1次（创建新令牌）
-        $this->repository->expects($this->once())
-            ->method('save')
-            ->with($this->isInstanceOf(AccessToken::class));
+        // 创建新令牌
+        $newToken = $this->service->createToken($user);
 
-        // 调用服务方法
-        $createdToken = $this->service->createToken($user);
+        // 验证现有令牌仍然有效
+        $existingTokenValue = $existingToken->getToken();
+        $this->assertNotNull($existingTokenValue);
+        $token = $this->repository->findOneByValue($existingTokenValue);
+        $this->assertNotNull($token);
+        $this->assertTrue($token->isValid());
 
-        // 验证返回的是AccessToken实例
-        $this->assertInstanceOf(AccessToken::class, $createdToken);
-
-        // 清理环境变量
-        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+        // 验证新令牌也有效
+        $this->assertTrue($newToken->isValid());
     }
 
-    public function testCreateToken_withDefaultEnvironmentVariable_shouldPreventMultipleLogin(): void
+    public function testCreateTokenWithDefaultEnvironmentVariableShouldPreventMultipleLogin(): void
     {
         // 不设置环境变量，应该使用默认值true
         unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
 
-        $user = $this->createMock(UserInterface::class);
-        $existingToken = $this->createMock(AccessToken::class);
-        $existingTokens = [$existingToken];
+        $user = $this->createNormalUser('test@example.com');
 
-        // 配置仓库返回现有令牌
-        $this->repository->expects($this->once())
-            ->method('findValidTokensByUser')
-            ->with($user)
-            ->willReturn($existingTokens);
+        // 创建现有令牌
+        $existingToken = $this->service->createToken($user);
 
-        // 期望现有令牌被吊销
-        $existingToken->expects($this->once())
-            ->method('setValid')
-            ->with(false)
-            ->willReturnSelf();
+        // 创建新令牌
+        $newToken = $this->service->createToken($user);
 
-        // 期望save方法被调用2次（1次吊销 + 1次创建新令牌）
-        $this->repository->expects($this->exactly(2))
-            ->method('save');
+        // 验证现有令牌被撤销（默认行为）
+        $token = self::getEntityManager()->find(AccessToken::class, $existingToken->getId());
+        $this->assertNotNull($token);
+        $this->assertFalse($token->isValid());
 
-        // 调用服务方法
-        $createdToken = $this->service->createToken($user);
-
-        // 验证返回的是AccessToken实例
-        $this->assertInstanceOf(AccessToken::class, $createdToken);
+        // 验证新令牌有效
+        $this->assertTrue($newToken->isValid());
     }
 
-    public function testCreateToken_withNoExistingTokens_shouldNotCallRevoke(): void
+    public function testCreateTokenWithNoExistingTokensShouldNotCallRevoke(): void
     {
         // 设置环境变量启用防止多点登录
         $_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN'] = 'true';
 
-        $user = $this->createMock(UserInterface::class);
+        $user = $this->createNormalUser('test@example.com');
 
-        // 配置仓库返回空数组（无现有令牌）
-        $this->repository->expects($this->once())
-            ->method('findValidTokensByUser')
-            ->with($user)
-            ->willReturn([]);
-
-        // 期望save方法只被调用1次（创建新令牌）
-        $this->repository->expects($this->once())
-            ->method('save')
-            ->with($this->isInstanceOf(AccessToken::class));
-
-        // 调用服务方法
+        // 直接创建令牌（没有现有令牌）
         $createdToken = $this->service->createToken($user);
 
         // 验证返回的是AccessToken实例
         $this->assertInstanceOf(AccessToken::class, $createdToken);
+        $this->assertTrue($createdToken->isValid());
+    }
 
-        // 清理环境变量
-        unset($_ENV['ACCESS_TOKEN_PREVENT_MULTIPLE_LOGIN']);
+    public function testValidateAndExtendTokenWithCustomRenewalTime(): void
+    {
+        $user = $this->createNormalUser('test@example.com');
+        $token = $this->service->createToken($user);
+        $originalExpiry = $token->getExpireTime();
+
+        // 等待一秒以确保时间有变化
+        sleep(1);
+
+        // 调用服务方法，传入自定义续期时间
+        $tokenValue = $token->getToken();
+        $this->assertNotNull($tokenValue);
+        $result = $this->service->validateAndExtendToken($tokenValue, 7200);
+
+        // 验证结果
+        $this->assertNotNull($result);
+
+        // 验证续期时间增加了约2小时
+        $resultExpireTime = $result->getExpireTime();
+        $this->assertNotNull($originalExpiry);
+        $this->assertNotNull($resultExpireTime);
+        $diff = $resultExpireTime->getTimestamp() - $originalExpiry->getTimestamp();
+        // 续期时间应该接近7200秒（考虑到 sleep(1) 和处理时间）
+        $this->assertGreaterThan(7190, $diff);
+        $this->assertLessThan(7210, $diff);
     }
 }

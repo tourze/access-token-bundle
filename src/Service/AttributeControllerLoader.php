@@ -1,15 +1,15 @@
 <?php
 
-namespace AccessTokenBundle\Service;
+namespace Tourze\AccessTokenBundle\Service;
 
-use AccessTokenBundle\Controller\ListTokensController;
-use AccessTokenBundle\Controller\RevokeTokenController;
-use AccessTokenBundle\Controller\TestController;
-use AccessTokenBundle\Controller\UserInfoController;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Config\Loader\Loader;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Routing\RouteCollection;
+use Tourze\AccessTokenBundle\Controller\ListTokensController;
+use Tourze\AccessTokenBundle\Controller\RevokeTokenController;
+use Tourze\AccessTokenBundle\Controller\TestController;
+use Tourze\AccessTokenBundle\Controller\UserInfoController;
 use Tourze\RoutingAutoLoaderBundle\Service\RoutingAutoLoaderInterface;
 
 #[AutoconfigureTag(name: 'routing.loader')]
@@ -17,15 +17,23 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
 {
     private AttributeRouteControllerLoader $controllerLoader;
 
+    private RouteCollection $collection;
+
     public function __construct()
     {
         parent::__construct();
         $this->controllerLoader = new AttributeRouteControllerLoader();
+
+        $this->collection = new RouteCollection();
+        $this->collection->addCollection($this->controllerLoader->load(UserInfoController::class));
+        $this->collection->addCollection($this->controllerLoader->load(ListTokensController::class));
+        $this->collection->addCollection($this->controllerLoader->load(RevokeTokenController::class));
+        $this->collection->addCollection($this->controllerLoader->load(TestController::class));
     }
 
     public function load(mixed $resource, ?string $type = null): RouteCollection
     {
-        return $this->autoload();
+        return $this->collection;
     }
 
     public function supports(mixed $resource, ?string $type = null): bool
@@ -35,11 +43,6 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
 
     public function autoload(): RouteCollection
     {
-        $collection = new RouteCollection();
-        $collection->addCollection($this->controllerLoader->load(UserInfoController::class));
-        $collection->addCollection($this->controllerLoader->load(ListTokensController::class));
-        $collection->addCollection($this->controllerLoader->load(RevokeTokenController::class));
-        $collection->addCollection($this->controllerLoader->load(TestController::class));
-        return $collection;
+        return $this->collection;
     }
 }

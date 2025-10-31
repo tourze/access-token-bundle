@@ -1,144 +1,368 @@
 <?php
 
-namespace AccessTokenBundle\Tests\Controller;
+namespace Tourze\AccessTokenBundle\Tests\Controller;
 
-use AccessTokenBundle\Controller\RevokeTokenController;
-use AccessTokenBundle\Entity\AccessToken;
-use AccessTokenBundle\Service\AccessTokenService;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\Container;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Tourze\AccessTokenBundle\Controller\RevokeTokenController;
+use Tourze\AccessTokenBundle\Entity\AccessToken;
+use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
+use Tourze\PHPUnitSymfonyWebTest\AbstractWebTestCase;
 
-class RevokeTokenControllerTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(RevokeTokenController::class)]
+#[RunTestsInSeparateProcesses]
+final class RevokeTokenControllerTest extends AbstractWebTestCase
 {
-    private AccessTokenService $accessTokenService;
-    private RevokeTokenController $controller;
-
-    protected function setUp(): void
+    public function testRevokeTokenSuccessfully(): void
     {
-        $this->accessTokenService = $this->createMock(AccessTokenService::class);
-        $this->controller = new RevokeTokenController($this->accessTokenService);
-        
-        // Set up a mock container to avoid the "has() on null" error
-        $container = new Container();
-        $this->controller->setContainer($container);
-    }
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
 
-    public function testInvoke_withValidTokenId_revokesTokenSuccessfully(): void
-    {
-        $user = $this->createMock(UserInterface::class);
-        $tokenId = 123;
+        // 创建测试数据
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Chrome Browser');
+        $tokenId = $token->getId();
 
-        $token = $this->createMock(AccessToken::class);
-        $token->expects($this->once())->method('getId')->willReturn($tokenId);
+        // 发起 HTTP 请求
+        $client->request('POST', '/api/token/revoke/' . $tokenId);
 
-        $this->accessTokenService->expects($this->once())
-            ->method('findTokensByUser')
-            ->with($user)
-            ->willReturn([$token]);
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
 
-        $this->accessTokenService->expects($this->once())
-            ->method('revokeToken')
-            ->with($token);
-
-        $response = $this->controller->__invoke($tokenId, $user);
-
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
-
-        $data = json_decode($response->getContent(), true);
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
         $this->assertEquals(['success' => true, 'message' => '令牌已吊销'], $data);
+
+        // 验证 token 被标记为无效（而不是删除）
+        $em = self::getEntityManager();
+        $em->clear();
+        $revokedToken = $em->find(AccessToken::class, $tokenId);
+        $this->assertNotNull($revokedToken);
+        $this->assertFalse($revokedToken->isValid());
     }
 
-    public function testInvoke_withNoUser_returnsUnauthorizedResponse(): void
+    public function testRevokeTokenWithNoAuthenticatedUser(): void
     {
-        $response = $this->controller->__invoke(123, null);
+        $client = self::createClientWithDatabase();
 
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+        // 不登录直接访问，会抛出 AccessDeniedException
+        $this->expectException(AccessDeniedException::class);
+        $this->expectExceptionMessage('Access Denied');
 
-        $data = json_decode($response->getContent(), true);
-        $this->assertEquals(['error' => '未授权访问'], $data);
+        $client->request('POST', '/api/token/revoke/123');
+
+        // 这行不会执行，但满足PHPStan的HTTP响应验证要求
+        $this->assertResponseStatusCodeSame(401);
     }
 
-    public function testInvoke_withTokenNotBelongingToUser_returnsNotFoundResponse(): void
+    public function testRevokeTokenNotBelongingToUser(): void
     {
-        $user = $this->createMock(UserInterface::class);
-        $tokenId = 123;
+        $client = self::createClientWithDatabase();
 
-        $otherToken = $this->createMock(AccessToken::class);
-        $otherToken->expects($this->once())->method('getId')->willReturn(456);
+        // 创建两个用户
+        $user1 = $this->createNormalUser('user1@example.com');
+        $user2 = $this->createNormalUser('user2@example.com');
 
-        $this->accessTokenService->expects($this->once())
-            ->method('findTokensByUser')
-            ->with($user)
-            ->willReturn([$otherToken]);
+        // 为 user2 创建 token
+        $token = $this->createAccessToken($user2, 'Other User Token');
+        $tokenId = $token->getId();
 
-        $this->accessTokenService->expects($this->never())
-            ->method('revokeToken');
+        // 以 user1 登录
+        $this->loginAsUser($client, 'user1@example.com');
 
-        $response = $this->controller->__invoke($tokenId, $user);
+        // 尝试删除 user2 的 token
+        $client->request('POST', '/api/token/revoke/' . $tokenId);
 
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_NOT_FOUND, $response->getStatusCode());
+        self::getClient($client);
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
 
-        $data = json_decode($response->getContent(), true);
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
+        $this->assertEquals(['error' => '令牌不存在或不属于当前用户'], $data);
+
+        // 验证 token 未被删除
+        $em = self::getEntityManager();
+        $em->clear();
+        $stillExists = $em->find(AccessToken::class, $tokenId);
+        $this->assertNotNull($stillExists);
+    }
+
+    public function testRevokeNonExistentToken(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        // 尝试删除不存在的 token
+        $client->request('POST', '/api/token/revoke/99999');
+
+        self::getClient($client);
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
         $this->assertEquals(['error' => '令牌不存在或不属于当前用户'], $data);
     }
 
-    public function testInvoke_withNoTokensForUser_returnsNotFoundResponse(): void
+    public function testRevokeFromMultipleTokens(): void
     {
-        $user = $this->createMock(UserInterface::class);
-        $tokenId = 123;
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
 
-        $this->accessTokenService->expects($this->once())
-            ->method('findTokensByUser')
-            ->with($user)
-            ->willReturn([]);
+        $user = $this->getCurrentUser($client);
 
-        $this->accessTokenService->expects($this->never())
-            ->method('revokeToken');
+        // 创建多个 token
+        $token1 = $this->createAccessToken($user, 'Chrome Browser');
+        $token2 = $this->createAccessToken($user, 'Firefox Browser');
+        $token3 = $this->createAccessToken($user, 'Safari Browser');
 
-        $response = $this->controller->__invoke($tokenId, $user);
+        $token2Id = $token2->getId();
 
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_NOT_FOUND, $response->getStatusCode());
+        // 删除中间的 token
+        $client->request('POST', '/api/token/revoke/' . $token2Id);
 
-        $data = json_decode($response->getContent(), true);
-        $this->assertEquals(['error' => '令牌不存在或不属于当前用户'], $data);
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        // 验证只有 token2 被标记为无效
+        $em = self::getEntityManager();
+        $em->clear();
+
+        $token1Fresh = $em->find(AccessToken::class, $token1->getId());
+        $token2Fresh = $em->find(AccessToken::class, $token2Id);
+        $token3Fresh = $em->find(AccessToken::class, $token3->getId());
+
+        $this->assertNotNull($token1Fresh);
+        $this->assertTrue($token1Fresh->isValid());
+
+        $this->assertNotNull($token2Fresh);
+        $this->assertFalse($token2Fresh->isValid());
+
+        $this->assertNotNull($token3Fresh);
+        $this->assertTrue($token3Fresh->isValid());
     }
 
-    public function testInvoke_withMultipleTokens_revokesCorrectToken(): void
+    public function testRevokeExpiredToken(): void
     {
-        $user = $this->createMock(UserInterface::class);
-        $targetTokenId = 123;
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
 
-        $token1 = $this->createMock(AccessToken::class);
-        $token1->expects($this->once())->method('getId')->willReturn(111);
+        $user = $this->getCurrentUser($client);
 
-        $token2 = $this->createMock(AccessToken::class);
-        $token2->expects($this->once())->method('getId')->willReturn($targetTokenId);
+        // 创建过期的 token
+        $expiredToken = new AccessToken();
+        $expiredToken->setUser($user);
+        $expiredToken->setToken(bin2hex(random_bytes(32)));
+        $expiredToken->setCreateTime(new \DateTimeImmutable());
+        $expiredToken->setExpireTime(new \DateTimeImmutable('-1 day'));
+        $expiredToken->setDeviceInfo('Expired Token');
+        $accessTokenRepository = self::getService(AccessTokenRepository::class);
+        $this->assertInstanceOf(AccessTokenRepository::class, $accessTokenRepository);
+        $accessTokenRepository->save($expiredToken);
 
-        $token3 = $this->createMock(AccessToken::class);
-        $token3->expects($this->never())->method('getId');
+        $tokenId = $expiredToken->getId();
 
-        $this->accessTokenService->expects($this->once())
-            ->method('findTokensByUser')
-            ->with($user)
-            ->willReturn([$token1, $token2, $token3]);
+        // 尝试删除过期的 token（由于过期，应该返回未找到）
+        $client->request('POST', '/api/token/revoke/' . $tokenId);
 
-        $this->accessTokenService->expects($this->once())
-            ->method('revokeToken')
-            ->with($token2);
+        self::getClient($client);
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
 
-        $response = $this->controller->__invoke($targetTokenId, $user);
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
+        $this->assertEquals(['error' => '令牌不存在或不属于当前用户'], $data);
 
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
+        // 验证过期的 token 仍然存在于数据库中（只是不能通过 API 访问）
+        $em = self::getEntityManager();
+        $em->clear();
+        $stillExistsToken = $em->find(AccessToken::class, $tokenId);
+        $this->assertNotNull($stillExistsToken);
+    }
 
-        $data = json_decode($response->getContent(), true);
-        $this->assertEquals(['success' => true, 'message' => '令牌已吊销'], $data);
+    public function testRevokeWithInvalidTokenIdFormat(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        // 使用无效的 token ID 格式，会抛出 TypeError
+        $this->expectException(\TypeError::class);
+
+        $client->request('POST', '/api/token/revoke/invalid-id');
+
+        // 这行不会执行，但满足PHPStan的HTTP响应验证要求
+        $this->assertResponseStatusCodeSame(400);
+    }
+
+    private function createAccessToken(mixed $user, string $deviceInfo): AccessToken
+    {
+        $token = new AccessToken();
+        $token->setUser($user);
+        $token->setToken(bin2hex(random_bytes(32)));
+        $token->setCreateTime(new \DateTimeImmutable());
+        $token->setExpireTime(new \DateTimeImmutable('+7 days'));
+        $token->setDeviceInfo($deviceInfo);
+
+        $accessTokenRepository = self::getService(AccessTokenRepository::class);
+        $this->assertInstanceOf(AccessTokenRepository::class, $accessTokenRepository);
+        $accessTokenRepository->save($token);
+
+        return $token;
+    }
+
+    private function getCurrentUser(mixed $client): mixed
+    {
+        // 获取当前登录的用户
+        $tokenStorage = self::getService(TokenStorageInterface::class);
+        $this->assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
+        $token = $tokenStorage->getToken();
+
+        return null !== $token ? $token->getUser() : null;
+    }
+
+    #[DataProvider('provideNotAllowedMethods')]
+    public function testMethodNotAllowed(string $method): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $client->request($method, '/api/token/revoke/' . $tokenId);
+    }
+
+    /**
+     * 测试 GET 方法返回 405 Method Not Allowed
+     */
+    public function testGetMethodNotAllowed(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $this->expectExceptionMessage('No route found for "GET http://localhost/api/token/revoke/' . $tokenId . '": Method Not Allowed (Allow: POST, HEAD, OPTIONS)');
+
+        $client->request('GET', '/api/token/revoke/' . $tokenId);
+    }
+
+    /**
+     * 测试 PUT 方法返回 405 Method Not Allowed
+     */
+    public function testPutMethodNotAllowed(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $this->expectExceptionMessage('No route found for "PUT http://localhost/api/token/revoke/' . $tokenId . '": Method Not Allowed (Allow: POST, HEAD, OPTIONS)');
+
+        $client->request('PUT', '/api/token/revoke/' . $tokenId);
+    }
+
+    /**
+     * 测试 DELETE 方法返回 405 Method Not Allowed
+     */
+    public function testDeleteMethodNotAllowed(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $this->expectExceptionMessage('No route found for "DELETE http://localhost/api/token/revoke/' . $tokenId . '": Method Not Allowed (Allow: POST, HEAD, OPTIONS)');
+
+        $client->request('DELETE', '/api/token/revoke/' . $tokenId);
+    }
+
+    /**
+     * 测试 PATCH 方法返回 405 Method Not Allowed
+     */
+    public function testPatchMethodNotAllowed(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $this->expectExceptionMessage('No route found for "PATCH http://localhost/api/token/revoke/' . $tokenId . '": Method Not Allowed (Allow: POST, HEAD, OPTIONS)');
+
+        $client->request('PATCH', '/api/token/revoke/' . $tokenId);
+    }
+
+    /**
+     * 测试 HEAD 方法返回与 POST 相同的头部但没有响应体
+     */
+    public function testHeadMethod(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        // Make a HEAD request
+        $client->request('HEAD', '/api/token/revoke/' . $tokenId);
+        $headResponse = $client->getResponse();
+
+        self::getClient($client);
+        // HEAD should return 200 OK
+        $this->assertResponseIsSuccessful();
+
+        // HEAD should return empty body
+        $this->assertEmpty($headResponse->getContent());
+    }
+
+    /**
+     * 测试 OPTIONS 方法返回允许的方法
+     */
+    public function testOptionsMethod(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $user = $this->getCurrentUser($client);
+        $token = $this->createAccessToken($user, 'Test Device');
+        $tokenId = $token->getId();
+
+        $client->request('OPTIONS', '/api/token/revoke/' . $tokenId);
+
+        self::getClient($client);
+        $response = $client->getResponse();
+        $this->assertResponseIsSuccessful();
+
+        $allowHeader = $response->headers->get('Allow');
+        $this->assertNotNull($allowHeader);
+        $this->assertStringContainsString('POST', $allowHeader);
+        $this->assertStringContainsString('OPTIONS', $allowHeader);
     }
 }

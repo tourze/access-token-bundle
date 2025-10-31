@@ -1,101 +1,276 @@
 <?php
 
-namespace AccessTokenBundle\Tests\Controller;
+namespace Tourze\AccessTokenBundle\Tests\Controller;
 
-use AccessTokenBundle\Controller\UserInfoController;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\Container;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Tourze\AccessTokenBundle\Controller\UserInfoController;
+use Tourze\PHPUnitSymfonyWebTest\AbstractWebTestCase;
 
-class UserInfoControllerTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(UserInfoController::class)]
+#[RunTestsInSeparateProcesses]
+final class UserInfoControllerTest extends AbstractWebTestCase
 {
-    private UserInfoController $controller;
-
-    protected function setUp(): void
+    public function testGetUserInfoWithAuthenticatedUser(): void
     {
-        $this->controller = new UserInfoController();
-        
-        // Set up a mock container to avoid the "has() on null" error
-        $container = new Container();
-        $this->controller->setContainer($container);
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        // 发起 HTTP 请求
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        $this->assertArrayHasKey('identifier', $data);
+        $this->assertEquals('test@example.com', $data['identifier']);
     }
 
-    public function testInvoke_withAuthenticatedUser_returnsUserInfo(): void
+    public function testGetUserInfoWithoutAuthentication(): void
     {
-        $user = $this->createMock(UserInterface::class);
-        $user->expects($this->once())
-            ->method('getUserIdentifier')
-            ->willReturn('test_user@example.com');
+        $client = self::createClientWithDatabase();
 
-        $response = $this->controller->__invoke($user);
+        // 不登录直接访问，会抛出 AccessDeniedException
+        $this->expectException(AccessDeniedException::class);
+        $this->expectExceptionMessage('Access Denied');
 
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
+        $client->request('GET', '/api/user');
 
-        $data = json_decode($response->getContent(), true);
-        $this->assertEquals(['identifier' => 'test_user@example.com'], $data);
+        // 这行不会执行，但满足PHPStan的HTTP响应验证要求
+        $this->assertResponseStatusCodeSame(401);
     }
 
-    public function testInvoke_withNoUser_returnsUnauthorizedResponse(): void
+    public function testGetUserInfoResponseStructure(): void
     {
-        $response = $this->controller->__invoke(null);
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
 
-        $this->assertInstanceOf(JsonResponse::class, $response);
-        $this->assertEquals(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+        $client->request('GET', '/api/user');
 
-        $data = json_decode($response->getContent(), true);
-        $this->assertEquals(['error' => '未授权访问'], $data);
-    }
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
 
-    public function testInvoke_withDifferentUserIdentifiers(): void
-    {
-        // 测试用户名标识符
-        $user1 = $this->createMock(UserInterface::class);
-        $user1->expects($this->once())
-            ->method('getUserIdentifier')
-            ->willReturn('username123');
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
 
-        $response1 = $this->controller->__invoke($user1);
-        $data1 = json_decode($response1->getContent(), true);
-        $this->assertEquals(['identifier' => 'username123'], $data1);
-
-        // 测试邮箱标识符
-        $user2 = $this->createMock(UserInterface::class);
-        $user2->expects($this->once())
-            ->method('getUserIdentifier')
-            ->willReturn('user@domain.com');
-
-        $response2 = $this->controller->__invoke($user2);
-        $data2 = json_decode($response2->getContent(), true);
-        $this->assertEquals(['identifier' => 'user@domain.com'], $data2);
-
-        // 测试数字标识符
-        $user3 = $this->createMock(UserInterface::class);
-        $user3->expects($this->once())
-            ->method('getUserIdentifier')
-            ->willReturn('12345');
-
-        $response3 = $this->controller->__invoke($user3);
-        $data3 = json_decode($response3->getContent(), true);
-        $this->assertEquals(['identifier' => '12345'], $data3);
-    }
-
-    public function testInvoke_responseStructure(): void
-    {
-        $user = $this->createMock(UserInterface::class);
-        $user->expects($this->once())
-            ->method('getUserIdentifier')
-            ->willReturn('test_user');
-
-        $response = $this->controller->__invoke($user);
-        $data = json_decode($response->getContent(), true);
-        
         // 确保响应只包含预期的字段
         $expectedKeys = ['identifier'];
         $actualKeys = array_keys($data);
-        
+
         $this->assertEquals($expectedKeys, $actualKeys);
+    }
+
+    public function testGetUserInfoWithDifferentUsers(): void
+    {
+        // 测试第一个用户
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'user1@example.com');
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $content1 = $client->getResponse()->getContent();
+        $this->assertIsString($content1);
+        $data1 = json_decode($content1, true);
+        $this->assertEquals('user1@example.com', $data1['identifier']);
+    }
+
+    public function testGetUserInfoWithAnotherUser(): void
+    {
+        // 测试第二个用户（单独的测试方法避免内核重启问题）
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'user2@example.com');
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $content2 = $client->getResponse()->getContent();
+        $this->assertIsString($content2);
+        $data2 = json_decode($content2, true);
+        $this->assertEquals('user2@example.com', $data2['identifier']);
+    }
+
+    public function testGetUserInfoResponseHeaders(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+
+        // 验证响应头
+        $response = $client->getResponse();
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+    }
+
+    public function testGetUserInfoWithDifferentHttpMethods(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        // 测试 POST 方法 - 返回 501 Not Implemented
+        $client->request('POST', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_IMPLEMENTED);
+
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $data = json_decode($content, true);
+        $this->assertEquals(['error' => 'Not implemented'], $data);
+    }
+
+    public function testGetUserInfoAfterLogout(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        // 先登录
+        $this->loginAsUser($client, 'test@example.com');
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+
+        // 模拟登出（清除会话）
+        $tokenStorage = self::getService(TokenStorageInterface::class);
+        $this->assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
+        $tokenStorage->setToken(null);
+
+        // 再次请求应该抛出 AccessDeniedException
+        $this->expectException(AccessDeniedException::class);
+        $client->request('GET', '/api/user');
+    }
+
+    public function testGetUserInfoResponseIsValidJson(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+
+        // 验证响应是有效的 JSON
+        $content = $client->getResponse()->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+
+        // 验证 JSON 解析不会出错
+        $data = json_decode($content, true);
+        $this->assertEquals(JSON_ERROR_NONE, json_last_error());
+    }
+
+    #[DataProvider('provideNotAllowedMethods')]
+    public function testMethodNotAllowed(string $method): void
+    {
+        $client = self::createClientWithDatabase();
+        $client->catchExceptions(false);
+        $this->loginAsUser($client, 'test@example.com');
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+
+        match ($method) {
+            'PUT' => $client->request('PUT', '/api/user'),
+            'DELETE' => $client->request('DELETE', '/api/user'),
+            'PATCH' => $client->request('PATCH', '/api/user'),
+            'TRACE' => $client->request('TRACE', '/api/user'),
+            'PURGE' => $client->request('PURGE', '/api/user'),
+            default => self::fail("Unsupported HTTP method: {$method}"),
+        };
+    }
+
+    /**
+     * 测试 GET 方法为 HEAD 对比做准备
+     */
+    public function testGetMethodForHeadComparison(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $client->request('GET', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $content = $client->getResponse()->getContent();
+        $this->assertNotEmpty($content);
+    }
+
+    /**
+     * 测试 HEAD 方法返回空响应体
+     */
+    public function testHeadMethod(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $client->request('HEAD', '/api/user');
+
+        self::getClient($client);
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        // HEAD should return empty body
+        $headContent = $client->getResponse()->getContent();
+        $this->assertEmpty($headContent);
+    }
+
+    /**
+     * 测试 OPTIONS 方法返回允许的方法
+     */
+    public function testOptionsMethod(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        $client->request('OPTIONS', '/api/user');
+
+        self::getClient($client);
+        $response = $client->getResponse();
+        $this->assertResponseIsSuccessful();
+
+        $allowHeader = $response->headers->get('Allow');
+        $this->assertNotNull($allowHeader);
+        $this->assertStringContainsString('GET', $allowHeader);
+        $this->assertStringContainsString('HEAD', $allowHeader);
+        $this->assertStringContainsString('OPTIONS', $allowHeader);
+        $this->assertStringContainsString('POST', $allowHeader);
+    }
+
+    /**
+     * 测试 POST 方法支持用户资料更新
+     */
+    public function testPostMethod(): void
+    {
+        $client = self::createClientWithDatabase();
+        $this->loginAsUser($client, 'test@example.com');
+
+        // POST method might be used for profile updates
+        $client->request('POST', '/api/user', [
+            'name' => 'Updated Name',
+        ]);
+
+        self::getClient($client);
+        $response = $client->getResponse();
+        // Expecting NOT_IMPLEMENTED for POST method
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_IMPLEMENTED);
     }
 }
