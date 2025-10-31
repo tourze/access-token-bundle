@@ -2,17 +2,22 @@
 
 namespace Tourze\AccessTokenBundle\Service;
 
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Tourze\AccessTokenBundle\Entity\AccessToken;
 use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
+use Tourze\AccessTokenContracts\TokenServiceInterface;
 
 /**
  * AccessToken 服务
  *
  * 集中管理访问令牌的创建、查询、续期等操作
  */
-readonly class AccessTokenService
+#[Autoconfigure(public: true)]
+#[AsAlias(TokenServiceInterface::class)]
+readonly class AccessTokenService implements TokenServiceInterface
 {
     public function __construct(
         private AccessTokenRepository $repository,
@@ -21,9 +26,6 @@ readonly class AccessTokenService
     ) {
     }
 
-    /**
-     * 创建新的访问令牌
-     */
     public function createToken(UserInterface $user, ?int $expiresIn = null, ?string $deviceInfo = null): AccessToken
     {
         // 检查是否启用防止多点登录

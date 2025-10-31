@@ -7,11 +7,12 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
+use Tourze\AccessTokenContracts\AccessTokenInterface;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
 
 #[ORM\Entity(repositoryClass: AccessTokenRepository::class)]
 #[ORM\Table(name: 'access_token', options: ['comment' => '访问令牌'])]
-class AccessToken implements \Stringable
+class AccessToken implements \Stringable, AccessTokenInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
