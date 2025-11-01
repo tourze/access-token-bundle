@@ -7,8 +7,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Tourze\AccessTokenBundle\Controller\UserInfoController;
 use Tourze\PHPUnitSymfonyWebTest\AbstractWebTestCase;
 
@@ -42,15 +40,13 @@ final class UserInfoControllerTest extends AbstractWebTestCase
     public function testGetUserInfoWithoutAuthentication(): void
     {
         $client = self::createClientWithDatabase();
+        $client->catchExceptions(true);  // 启用异常捕获，将异常转换为 HTTP 响应
 
-        // 不登录直接访问，会抛出 AccessDeniedException
-        $this->expectException(AccessDeniedException::class);
-        $this->expectExceptionMessage('Access Denied');
-
+        // 不登录直接访问，Security 层返回 302 重定向到登录页（form_login Entry Point）
         $client->request('GET', '/api/user');
 
-        // 这行不会执行，但满足PHPStan的HTTP响应验证要求
-        $this->assertResponseStatusCodeSame(401);
+        self::getClient($client);
+        $this->assertResponseRedirects('/login', Response::HTTP_FOUND);
     }
 
     public function testGetUserInfoResponseStructure(): void
@@ -147,14 +143,18 @@ final class UserInfoControllerTest extends AbstractWebTestCase
         self::getClient($client);
         $this->assertResponseIsSuccessful();
 
-        // 模拟登出（清除会话）
-        $tokenStorage = self::getService(TokenStorageInterface::class);
-        $this->assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
-        $tokenStorage->setToken(null);
+        // 模拟登出：先关闭当前内核，然后创建新客户端（等价于"换了个浏览器"，没有会话）
+        $client->getKernel()->shutdown();
+        static::ensureKernelShutdown();  // 确保内核完全关闭
 
-        // 再次请求应该抛出 AccessDeniedException
-        $this->expectException(AccessDeniedException::class);
-        $client->request('GET', '/api/user');
+        $newClient = self::createClientWithDatabase();
+        $newClient->catchExceptions(true);  // 启用异常捕获，将异常转换为 HTTP 响应
+
+        // 未登录的客户端访问应该返回 302 重定向到登录页（form_login Entry Point）
+        $newClient->request('GET', '/api/user');
+
+        self::getClient($newClient);
+        $this->assertResponseRedirects('/login', Response::HTTP_FOUND);
     }
 
     public function testGetUserInfoResponseIsValidJson(): void

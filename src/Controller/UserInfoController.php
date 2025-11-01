@@ -6,6 +6,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
@@ -22,7 +23,7 @@ final class UserInfoController extends AbstractController
         }
 
         if (null === $user) {
-            return $this->json(['error' => '未授权访问'], Response::HTTP_UNAUTHORIZED);
+            throw new AccessDeniedException('Full authentication is required to access this resource.');
         }
 
         if ('POST' === $request->getMethod()) {

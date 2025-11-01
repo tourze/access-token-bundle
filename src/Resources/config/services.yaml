@@ -14,3 +14,4 @@ services:
     resource: '../../Repository/'
   Tourze\AccessTokenBundle\Service\:
     resource: '../../Service/'
+    public: true        # Services need to be public for testing
