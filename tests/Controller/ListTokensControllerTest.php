@@ -42,10 +42,12 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         $this->assertIsString($content);
         $data = json_decode($content, true);
         $this->assertIsArray($data);
+        /** @var array<int, array<string, mixed>> $data */
         $this->assertCount(2, $data);
 
         // 验证返回的数据结构
         foreach ($data as $tokenData) {
+            /** @var array<string, mixed> $tokenData */
             $this->assertArrayHasKey('id', $tokenData);
             $this->assertArrayHasKey('token', $tokenData);
             $this->assertArrayHasKey('createTime', $tokenData);
@@ -55,7 +57,9 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         }
 
         // 验证 token 被截断显示
+        $this->assertIsString($data[0]['token']);
         $this->assertStringEndsWith('...', $data[0]['token']);
+        $this->assertIsString($data[1]['token']);
         $this->assertStringEndsWith('...', $data[1]['token']);
     }
 
@@ -115,10 +119,14 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         $content = $client->getResponse()->getContent();
         $this->assertIsString($content);
         $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        /** @var array<int, array<string, mixed>> $data */
         $this->assertCount(2, $data);
 
         // 验证返回的都是 user1 的 token
         foreach ($data as $tokenData) {
+            /** @var array<string, mixed> $tokenData */
+            $this->assertIsString($tokenData['deviceInfo']);
             $this->assertStringContainsString('Device', $tokenData['deviceInfo']);
             $this->assertNotEquals('Device 3', $tokenData['deviceInfo']);
         }
@@ -153,6 +161,8 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         $content = $client->getResponse()->getContent();
         $this->assertIsString($content);
         $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        /** @var array<int, array<string, mixed>> $data */
         $this->assertCount(1, $data);
         $this->assertEquals('Valid Token', $data[0]['deviceInfo']);
     }
@@ -179,6 +189,8 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         $content = $client->getResponse()->getContent();
         $this->assertIsString($content);
         $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        /** @var array<int, array<string, mixed>> $data */
         $this->assertCount(3, $data);
 
         // 验证按创建时间降序排列（最新的在前）

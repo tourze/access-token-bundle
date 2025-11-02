@@ -16,7 +16,7 @@ use Tourze\AccessTokenContracts\TokenServiceInterface;
  * 集中管理访问令牌的创建、查询、续期等操作
  */
 #[Autoconfigure(public: true)]
-#[AsAlias(TokenServiceInterface::class)]
+#[AsAlias(id: TokenServiceInterface::class)]
 readonly class AccessTokenService implements TokenServiceInterface
 {
     public function __construct(
@@ -57,7 +57,7 @@ readonly class AccessTokenService implements TokenServiceInterface
     /**
      * 获取用户所有有效令牌
      *
-     * @return AccessToken[]
+     * @return list<AccessToken>
      */
     public function findTokensByUser(UserInterface $user): array
     {

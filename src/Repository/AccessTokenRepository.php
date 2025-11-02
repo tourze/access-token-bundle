@@ -48,7 +48,8 @@ class AccessTokenRepository extends ServiceEntityRepository
      */
     public function findOneByValue(string $value): ?AccessToken
     {
-        return $this->createQueryBuilder('t')
+        /** @var AccessToken|null $result */
+        $result = $this->createQueryBuilder('t')
             ->where('t.token = :token')
             ->andWhere('t.valid = :valid')
             ->andWhere('t.expireTime > :now')
@@ -58,16 +59,19 @@ class AccessTokenRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult()
         ;
+
+        return $result;
     }
 
     /**
      * 查找用户的所有有效令牌
      *
-     * @return AccessToken[]
+     * @return list<AccessToken>
      */
     public function findValidTokensByUser(UserInterface $user): array
     {
-        return $this->createQueryBuilder('t')
+        /** @var list<AccessToken> $result */
+        $result = $this->createQueryBuilder('t')
             ->where('t.user = :user')
             ->andWhere('t.valid = :valid')
             ->andWhere('t.expireTime > :now')
@@ -78,6 +82,8 @@ class AccessTokenRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult()
         ;
+
+        return $result;
     }
 
     /**
@@ -88,6 +94,7 @@ class AccessTokenRepository extends ServiceEntityRepository
         $now = new \DateTimeImmutable();
 
         $qb = $this->createQueryBuilder('t');
+        /** @var array<int, array{id: int}> $expiredTokenIds */
         $expiredTokenIds = $qb->select('t.id')
             ->where($qb->expr()->orX(
                 $qb->expr()->lt('t.expireTime', ':now'),
@@ -103,14 +110,18 @@ class AccessTokenRepository extends ServiceEntityRepository
             return 0;
         }
 
+        /** @var list<int> $ids */
         $ids = array_column($expiredTokenIds, 'id');
 
-        return $this->createQueryBuilder('t')
+        /** @var int $deletedCount */
+        $deletedCount = $this->createQueryBuilder('t')
             ->delete()
             ->where('t.id IN (:ids)')
             ->setParameter('ids', $ids)
             ->getQuery()
             ->execute()
         ;
+
+        return $deletedCount;
     }
 }

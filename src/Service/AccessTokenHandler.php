@@ -19,9 +19,10 @@ readonly class AccessTokenHandler implements AccessTokenHandlerInterface
     {
         // 使用服务验证并续期令牌
         // 默认自动续期一小时
+        $renewalTime = $_ENV['ACCESS_TOKEN_RENEWAL_TIME'] ?? 3600;
         $accessTokenEntity = $this->accessTokenService->validateAndExtendToken(
             $accessToken,
-            $_ENV['ACCESS_TOKEN_RENEWAL_TIME'] ?? 3600,
+            is_numeric($renewalTime) ? (int) $renewalTime : 3600,
         );
 
         if (null === $accessTokenEntity) {

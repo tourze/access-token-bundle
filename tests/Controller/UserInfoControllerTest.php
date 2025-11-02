@@ -62,6 +62,8 @@ final class UserInfoControllerTest extends AbstractWebTestCase
         $content = $client->getResponse()->getContent();
         $this->assertIsString($content);
         $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        /** @var array<string, mixed> $data */
 
         // 确保响应只包含预期的字段
         $expectedKeys = ['identifier'];
@@ -82,6 +84,8 @@ final class UserInfoControllerTest extends AbstractWebTestCase
         $content1 = $client->getResponse()->getContent();
         $this->assertIsString($content1);
         $data1 = json_decode($content1, true);
+        $this->assertIsArray($data1);
+        /** @var array<string, mixed> $data1 */
         $this->assertEquals('user1@example.com', $data1['identifier']);
     }
 
@@ -97,6 +101,8 @@ final class UserInfoControllerTest extends AbstractWebTestCase
         $content2 = $client->getResponse()->getContent();
         $this->assertIsString($content2);
         $data2 = json_decode($content2, true);
+        $this->assertIsArray($data2);
+        /** @var array<string, mixed> $data2 */
         $this->assertEquals('user2@example.com', $data2['identifier']);
     }
 

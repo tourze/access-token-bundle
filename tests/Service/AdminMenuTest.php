@@ -108,6 +108,7 @@ final class AdminMenuTest extends AbstractEasyAdminMenuTestCase
     public function testAdminMenuIsCallable(): void
     {
         $adminMenu = self::getService(AdminMenu::class);
-        $this->assertIsCallable($adminMenu);
+        // AdminMenu 实现了 __invoke() 方法，PHPStan 已能推断其为 callable
+        $this->assertInstanceOf(AdminMenu::class, $adminMenu);
     }
 }

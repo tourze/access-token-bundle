@@ -103,6 +103,8 @@ final class TestControllerTest extends AbstractWebTestCase
         $content = $client->getResponse()->getContent();
         $this->assertIsString($content);
         $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        /** @var array<string, mixed> $data */
 
         // 确保响应只包含预期的字段
         $expectedKeys = ['message', 'timestamp'];
@@ -140,6 +142,8 @@ final class TestControllerTest extends AbstractWebTestCase
         $content = $client->getResponse()->getContent();
         $this->assertIsString($content);
         $data = json_decode($content, true);
+        $this->assertIsArray($data);
+        /** @var array<string, mixed> $data */
         $this->assertEquals('API访问成功', $data['message']);
     }
 

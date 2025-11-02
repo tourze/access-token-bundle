@@ -114,7 +114,6 @@ final class AccessTokenCrudControllerTest extends AbstractEasyAdminControllerTes
 
         // 验证配置方法返回正确的类型
         $fields = iterator_to_array($controller->configureFields('index'));
-        $this->assertIsArray($fields);
         $this->assertNotEmpty($fields);
 
         $crud = $controller->configureCrud(Crud::new());

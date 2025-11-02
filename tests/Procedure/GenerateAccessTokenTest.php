@@ -34,7 +34,6 @@ final class GenerateAccessTokenTest extends AbstractProcedureTestCase
 
         $result = $this->procedure->execute();
 
-        $this->assertIsArray($result);
         $this->assertArrayHasKey('token', $result);
         $this->assertArrayHasKey('expire_time', $result);
         $this->assertArrayHasKey('create_time', $result);
@@ -45,7 +44,11 @@ final class GenerateAccessTokenTest extends AbstractProcedureTestCase
         $this->assertNotEmpty($result['token']);
         $this->assertEquals($user->getUserIdentifier(), $result['user_id']);
         $this->assertEquals('iPhone 15', $result['device_info']);
+        $this->assertArrayHasKey('expire_time', $result);
+        $this->assertIsString($result['expire_time']);
         $this->assertMatchesRegularExpression('/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/', $result['expire_time']);
+        $this->assertArrayHasKey('create_time', $result);
+        $this->assertIsString($result['create_time']);
         $this->assertMatchesRegularExpression('/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/', $result['create_time']);
     }
 
@@ -59,7 +62,6 @@ final class GenerateAccessTokenTest extends AbstractProcedureTestCase
 
         $result = $this->procedure->execute();
 
-        $this->assertIsArray($result);
         $this->assertArrayHasKey('token', $result);
         $this->assertEquals($user->getUserIdentifier(), $result['user_id']);
         $this->assertNull($result['device_info']);
@@ -122,7 +124,6 @@ final class GenerateAccessTokenTest extends AbstractProcedureTestCase
 
         $result = $this->procedure->execute();
 
-        $this->assertIsArray($result);
         $this->assertArrayHasKey('token', $result);
         $this->assertArrayHasKey('user_id', $result);
         $this->assertArrayHasKey('device_info', $result);

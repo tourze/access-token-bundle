@@ -48,7 +48,6 @@ final class AccessTokenServiceTest extends AbstractIntegrationTestCase
 
         // 验证令牌被保存到数据库
         $tokenValue = $createdToken->getToken();
-        $this->assertNotNull($tokenValue);
         $foundToken = $this->repository->findOneByValue($tokenValue);
         $this->assertNotNull($foundToken);
         $this->assertEquals($createdToken->getId(), $foundToken->getId());
