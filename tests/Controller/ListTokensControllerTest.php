@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Tourze\AccessTokenBundle\Controller\ListTokensController;
 use Tourze\AccessTokenBundle\Entity\AccessToken;
 use Tourze\AccessTokenBundle\Repository\AccessTokenRepository;
@@ -199,7 +200,7 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         $this->assertEquals('First Token', $data[2]['deviceInfo']);
     }
 
-    private function createAccessToken(mixed $user, string $deviceInfo, ?string $ip = null): AccessToken
+    private function createAccessToken(UserInterface $user, string $deviceInfo, ?string $ip = null): AccessToken
     {
         $token = new AccessToken();
         $token->setUser($user);
@@ -219,14 +220,18 @@ final class ListTokensControllerTest extends AbstractWebTestCase
         return $token;
     }
 
-    private function getCurrentUser(mixed $client): mixed
+    private function getCurrentUser(mixed $client): UserInterface
     {
         // 获取当前登录的用户
         $tokenStorage = self::getService(TokenStorageInterface::class);
         $this->assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
         $token = $tokenStorage->getToken();
 
-        return null !== $token ? $token->getUser() : null;
+        $this->assertNotNull($token, '用户必须已登录');
+        $user = $token->getUser();
+        $this->assertInstanceOf(UserInterface::class, $user, '用户必须实现UserInterface');
+
+        return $user;
     }
 
     #[DataProvider('provideNotAllowedMethods')]

@@ -51,6 +51,7 @@ final class TestControllerTest extends AbstractWebTestCase
             $this->assertArrayHasKey('date', $timestamp);
             $this->assertArrayHasKey('timezone_type', $timestamp);
             $this->assertArrayHasKey('timezone', $timestamp);
+            $this->assertIsString($timestamp['date'], '时间戳date字段必须是字符串');
             $dateTime = new \DateTime($timestamp['date']);
         }
 
