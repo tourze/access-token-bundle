@@ -151,7 +151,7 @@ final class UserInfoControllerTest extends AbstractWebTestCase
 
         // 模拟登出：先关闭当前内核，然后创建新客户端（等价于"换了个浏览器"，没有会话）
         $client->getKernel()->shutdown();
-        static::ensureKernelShutdown();  // 确保内核完全关闭
+        self::ensureKernelShutdown();  // 确保内核完全关闭
 
         $newClient = self::createClientWithDatabase();
         $newClient->catchExceptions(true);  // 启用异常捕获，将异常转换为 HTTP 响应

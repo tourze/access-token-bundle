@@ -328,6 +328,7 @@ final class AccessTokenCrudController extends AbstractCrudController
 
         if (method_exists($user, 'getUsername')) {
             $username = $user->getUsername();
+
             return is_string($username) ? $username : strval($username);
         }
 
