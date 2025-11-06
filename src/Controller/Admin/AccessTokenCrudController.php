@@ -80,7 +80,12 @@ final class AccessTokenCrudController extends AbstractCrudController
         yield TextField::new('token', '令牌')
             ->setMaxLength(32)
             ->setRequired(true)
-            ->formatValue(fn ($value) => $value ? $this->formatToken(is_string($value) ? $value : strval($value)) : '')
+            ->formatValue(fn ($value) => match (true) {
+                !$value => '',
+                is_string($value) => $this->formatToken($value),
+                is_scalar($value) => $this->formatToken(strval($value)),
+                default => $this->formatToken('')
+            })
             ->onlyOnIndex()
         ;
 
@@ -329,7 +334,11 @@ final class AccessTokenCrudController extends AbstractCrudController
         if (method_exists($user, 'getUsername')) {
             $username = $user->getUsername();
 
-            return is_string($username) ? $username : strval($username);
+            return match (true) {
+                is_string($username) => $username,
+                is_scalar($username) => strval($username),
+                default => ''
+            };
         }
 
         return method_exists($user, '__toString') ? (string) $user : 'User';
