@@ -11,7 +11,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tourze\AccessTokenBundle\Service\AccessTokenService;
 
 #[AsCommand(name: self::NAME, description: '清理过期的访问令牌')]
-class CleanupAccessTokensCommand extends Command
+final class CleanupAccessTokensCommand extends Command
 {
     public const NAME = 'app:cleanup-access-tokens';
 

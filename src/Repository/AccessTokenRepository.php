@@ -12,7 +12,7 @@ use Tourze\PHPUnitSymfonyKernelTest\Attribute\AsRepository;
  * @extends ServiceEntityRepository<AccessToken>
  */
 #[AsRepository(entityClass: AccessToken::class)]
-class AccessTokenRepository extends ServiceEntityRepository
+final class AccessTokenRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {

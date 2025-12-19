@@ -16,7 +16,7 @@ use Tourze\AccessTokenBundle\Service\AccessTokenService;
     name: self::NAME,
     description: '为用户创建新的访问令牌',
 )]
-class CreateAccessTokenCommand extends Command
+final class CreateAccessTokenCommand extends Command
 {
     public const NAME = 'app:create-access-token';
 
